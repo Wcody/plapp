@@ -1,0 +1,113 @@
+// ======================================
+// 🔥 核心：UTS 标准类型定义（全平台兼容）
+// ======================================
+export type FlagItem = {
+  freq: number;
+  time: number;
+};
+
+export type ProgramItem = {
+  title: string;
+  features: string[];
+  desc: string;
+  best: string[];
+  totalFreqs: string;
+  totalTime: number;
+  flags: FlagItem[];
+  hasDamos: boolean;
+};
+
+// 定义映射类型：key 是标题(string)，value 是程序对象(ProgramItem)
+export type ProgramsMap = Record<string, ProgramItem>;
+
+// ======================================
+// 完整程序数据（无断言、无类型报错）
+// ======================================
+export const programsList: ProgramItem[] = [
+	{
+		title: 'DEEP RECOVERY', features: ['System recovery', 'Tension easing'],
+		desc: '',
+		best: ['Post-workout fatigue', 'Overworked muscles', 'General body heaviness', 'End-of-day decompresslon', 'Anyone feeling "wired and tired"'],
+		totalFreqs: '2-10',
+		totalTime: 26,
+		flags: [{ freq: 2, time: 8 }, { freq: 5, time: 10 }, { freq: 10, time: 8 }],
+		hasDamos: true
+	},
+	{
+		title: 'CIRCULATION', features: ['Flow', 'Lymph', 'Warm-up'],
+		desc: 'Encourages microcirculation and lymphatic flow so tissues feel lighter, warmer, and more mobile.',
+		best: ['Soreness after training', 'Legs that feel heavy or tight', 'Swelling / fluid stagnation sensations', 'Desk workers with stiff hips or back', 'Athletes needing faster recovery'],
+		totalFreqs: '4-7',
+		totalTime: 20,
+		flags: [{ freq: 4, time: 10 }, { freq: 7, time: 10 }],
+		hasDamos: true
+	},
+	{
+		title: 'COMFORT', features: ['Modulate tension', 'Ease guarding'],
+		desc: 'Helps calm areas of irritation or guarding by modulating sensory input and easing over-protective muscle tension patterns.',
+		best: ['Tight, over-active muscles', 'Areas that "lock up" under stress', 'Local discomfort from repetitive strain', 'Postural tension (neck, shoulders, low back)'],
+		totalFreqs: '3-15',
+		totalTime: 18,
+		flags: [{ freq: 3, time: 5 }, { freq: 10, time: 8 }, { freq: 15, time: 5 }],
+		hasDamos: false
+	},
+	{
+		title: 'STRESS RELEASE', features: ['Downshift', 'Parasympathetic support'],
+		desc: 'A gentle down-shifting program that helps the body transition out of sympathetic (fight-or-flight) mode into a calmer, more regulated state.',
+		best: ['High stress or anxious days', 'Tight chest, shoulders, or jaw', 'Difficulty winding down', 'Fatigue from overthinking', 'Before breathwork or meditation'],
+		totalFreqs: '1-4',
+		totalTime: 20,
+		flags: [{ freq: 1, time: 5 }, { freq: 2, time: 8 }, { freq: 4, time: 7 }],
+		hasDamos: true
+	},
+	{
+		title: 'NERVOUS SYSTEM RESET', features: ['Rebalance', 'Awareness'],
+		desc: 'Rebalances sensory motor pathways and improves body awareness by syncing the autonomic system with calm movement patterns.',
+		best: ['Feeling "disconnected" from the body', 'Movement compensation patterns', 'Postural imbalance', 'Early stages of burnout', 'After travel or long workdays'],
+		totalFreqs: '2-10',
+		totalTime: 21,
+		flags: [{ freq: 2, time: 5 }, { freq: 4, time: 8 }, { freq: 10, time: 8 }],
+		hasDamos: true
+	},
+	{
+		title: 'FASCIA RELEASE', features: ['Softening', 'Glide', 'Mobility'],
+		desc: 'Softens tight fascia, improves glide between tissue layers, and prepares the body for manual therapy or stretching.',
+		best: ['Tight hips / IT band', 'Stiff lower back', 'Restricted shoulder or chest', 'Chronic posture-driven tension', 'Athletes with recurring tension patterns'],
+		totalFreqs: '5-10',
+		totalTime: 20,
+		flags: [{ freq: 5, time: 6 }, { freq: 8, time: 8 }, { freq: 10, time: 6 }],
+		hasDamos: true
+	},
+	{
+		title: 'PERFORMANCE', features: ['Activation', 'Readiness'],
+		desc: 'Primes the neuromuscular system for power, speed, and readiness by increasing activation and responsiveness.',
+		best: ['Pre-training warm-up', 'Before lifting or explosive movements', 'Pre-competition routine', 'Anyone needing sharper focus and energy'],
+		totalFreqs: '12-20',
+		totalTime: 15,
+		flags: [{ freq: 12, time: 5 }, { freq: 16, time: 5 }, { freq: 20, time: 5 }],
+		hasDamos: false
+	},
+	{
+		title: 'MENTAL CLARITY', features: ['Focus', 'cognitive balance'],
+		desc: 'Supports calm focus, cognitive sharpness, and mental reset without overstimulation.',
+		best: ['Fatigue or mental fog', 'Mid-day recharge', 'Work stress', 'Heavy concentration days', 'Creative or strategic work'],
+		totalFreqs: '8-12',
+		totalTime: 20,
+		flags: [{ freq: 8, time: 6 }, { freq: 10, time: 8 }, { freq: 12, time: 6 }],
+		hasDamos: false
+	}
+];
+
+// ======================================
+// 修复：用 UTS 原生对象做映射（抛弃UTSJSONObject，零报错）
+// ======================================
+export const getProgramsMap = (): ProgramsMap => {
+	// 1. 创建空映射对象（标准UTS对象，无任何原生兼容问题）
+	const map: ProgramsMap = {};
+	// 2. 遍历赋值（类型完全安全）
+	programsList.forEach((program: ProgramItem) => {
+		map[program.title] = program;
+	});
+	// 3. 返回映射表
+	return map;
+};

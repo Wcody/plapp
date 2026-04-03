@@ -1,0 +1,262 @@
+<template>
+	<view class="gauge-wrap" @touchend.stop="handleClick">
+		<text class="gauge-title">{{ props.title }}</text>
+		<view class="canvas-wrapper">
+			<canvas id="gaugeCanvas" class="gauge-canvas" :style="{
+					width: canvasData.canvasSize + 'px',
+					height: canvasData.canvasSize + 'px'
+				}"></canvas>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { getCurrentInstance, reactive, computed, watch, ref } from 'vue';
+	import { playClickSound } from '../../utils/common'
+	import { ParamItem, createParamItem } from '@/data/duo-config.uts'
+
+	// Props声明（类型安全）
+	const props = defineProps({
+		title: { type: String, default: '' },
+		value: { type: Number, default: 0 },
+		unit: { type: String, default: '' },
+		isActive: { type: Boolean, default: false },
+		min: { type: Number, default: 1 },
+		max: { type: Number, default: 100 },
+		fixed: { type: Number, default: 0 },
+		step: { type: Number, default: 1 },
+	})
+
+	// 事件声明
+	const emit = defineEmits(['click', 'select'])
+
+	// 点击事件（带音效）
+	const handleClick = () => {
+		const item = createParamItem(props.title, props.value, props.unit, props.isActive, props.min, props.max, props.fixed, props.step);
+		if (props.isActive) {
+			// 点击进入配置
+			emit('click', item)
+		} else if (!props.isActive) {
+			// 仅仅高亮选中
+			emit('select', item);
+		}
+	}
+
+	type DataType = {
+		canvas : UniCanvasElement | null;
+		canvasContext : CanvasContext | null;
+		ctx2d : CanvasRenderingContext2D | null;
+		canvasWidth : number;
+		canvasHeight : number;
+		canvasSize : number;
+		dpr : number;
+	}
+
+	const canvasData = reactive({
+		canvas: null,
+		canvasContext: null,
+		ctx2d: null,
+		canvasWidth: 0,
+		canvasHeight: 0,
+		canvasSize: 300,
+		dpr: 1,
+	} as DataType)
+
+	// 固定默认值 → PC 不崩溃
+	const instance = getCurrentInstance()!.proxy;
+
+	// 全端通用：不写复杂类型，不报错
+	function setCanvasSize() {
+		const dpr = uni.getWindowInfo().pixelRatio as number;
+		canvasData.dpr = dpr;
+		if (canvasData.canvas != null) {
+			canvasData.canvas.width = canvasData.canvasSize * dpr;
+			canvasData.canvas.height = canvasData.canvasSize * dpr;
+		}
+		if (canvasData.ctx2d != null) {
+			canvasData.ctx2d.scale(dpr, dpr);
+		}
+	}
+
+	const lineW = 1;
+	const totalAngle = 270;
+	const startAngle = 135;
+
+	// 找面板所在父容器的大小
+	async function getParentSize() {
+		return new Promise<void>((resolve) => {
+			uni.createSelectorQuery()
+				.in(instance)
+				.select('.canvas-wrapper')
+				.boundingClientRect((node : any) => {
+					const n = node as NodeInfo;
+					if (n.width != null && n.height != null) {
+						canvasData.canvasSize = Math.min(n.width, n.height);
+					}
+					resolve();
+				})
+				.exec();
+		});
+	}
+
+	// ✅ 全端兼容 draw（PC / 安卓都能画）
+	function draw() {
+		if (canvasData.ctx2d == null) return;
+		const ctx = canvasData.ctx2d;
+		const size = canvasData.canvasSize;
+
+		ctx.clearRect(0, 0, size, size);
+
+		const padding = size * 0.02;
+		const cx = size / 2;
+		const cy = size / 2;
+
+
+		// 画圆环
+		ctx.beginPath();
+		ctx.lineWidth = lineW * size * 0.01;
+		const R = (size / 2) - ctx.lineWidth - padding;
+		ctx.arc(cx, cy, R, 0, Math.PI * 2);
+		ctx.strokeStyle = '#aaa';
+		ctx.stroke();
+
+		// 起始角度
+		const sA = 50;
+		const eA = 130;
+		// 底部白弧
+		const decS = sA * Math.PI / 180;
+		const decE = eA * Math.PI / 180;
+		ctx.beginPath();
+		ctx.lineWidth = lineW * size * 0.012;
+		ctx.arc(cx, cy, R - ctx.lineWidth * 2, decS, decE);
+		ctx.strokeStyle = '#fff';
+		ctx.stroke();
+
+		//底部白狐
+		ctx.beginPath();
+		ctx.lineWidth = lineW * size * 0.012;
+		ctx.arc(cx, cy, R - ctx.lineWidth * 4.5, decS, decE);
+		ctx.strokeStyle = '#fff';
+		ctx.stroke();
+
+		//进度条底色
+		const sep = 10;
+		const decS1 = (eA + sep) * Math.PI / 180;
+		const decE1 = (sA - sep) * Math.PI / 180;
+		ctx.beginPath();
+		ctx.lineWidth = lineW * size * 0.08;
+		const dR = R - ctx.lineWidth * 0.75
+		ctx.arc(cx, cy, dR, decS1, decE1);
+		ctx.strokeStyle = '#444';
+		ctx.stroke();
+
+		//按照百分比计算覆盖弧度
+		//白色画进度弧线
+		// 百分比（0 ~ 100）
+		const percent = props.value; // 这里替换成你的值
+
+		// 需要减少的进度
+		const progress = 1 - Math.max(0, Math.min(1, percent / 100));
+
+		// 这是当前角度
+		const decE2 = (sA - sep - progress * (279.9 - sep * 2)) * Math.PI / 180;
+
+		// 绘制进度弧
+		ctx.beginPath();
+		ctx.lineWidth = lineW * size * 0.08;
+		ctx.arc(cx, cy, dR, decS1, decE2);
+		ctx.strokeStyle = '#fff';
+		ctx.stroke();
+
+		// 选中的效果
+		if (props.isActive) {
+			// 径向渐变：圆心亮→四周暗
+			const centerGlow = ctx.createRadialGradient(
+				cx, cy, 0,        // 内圆：圆心起始
+				cx, cy, R   // 外圆：扩散范围
+			);
+			centerGlow.addColorStop(0, '#2a78b5');
+			centerGlow.addColorStop(1, '#64d2cb');
+
+			// 铺满中间区域柔光
+			ctx.beginPath();
+			ctx.arc(cx, cy, dR - ctx.lineWidth * 0.5, 0, Math.PI * 2);
+			ctx.fillStyle = centerGlow;
+			ctx.fill();
+		}
+
+		//居中画文本和单位
+		// ==============================
+		// 居中绘制：数值 + 单位（两行垂直居中）
+		// ==============================
+		const centerText = props.value;   // 主数值
+		const centerUnit = props.unit;        // 单位
+
+		// 自适应字体大小（跟随画布自动缩放）
+		const fontSizeMain = size * 0.28;     // 主数字大小
+		const fontSizeUnit = size * 0.08;     // 单位大小
+
+		// 垂直居中偏移（完美居中）
+		const offsetY = size * 0.1;
+
+		// 全端兼容绘制文字
+		ctx.font = `${fontSizeMain}px Arial`;
+		// 绘制主数值
+		ctx.textAlign = "center"
+		ctx.fillStyle = "#fff"
+		ctx.fillText(centerText + '', cx, cy + offsetY);
+
+		ctx.font = `${fontSizeUnit}px Arial`;
+		// 绘制单位
+		ctx.fillText(centerUnit, cx + offsetY * 2.4, cy + offsetY);
+	}
+
+	uni.$on('duo-page-ready', async () => {
+		await getParentSize();
+
+		uni.createCanvasContextAsync({
+			id: 'gaugeCanvas',
+			component: instance,
+			success: (canvasCtx) => {
+				const ctx2d = canvasCtx.getContext('2d');
+				if (ctx2d == null) return;
+
+				canvasData.ctx2d = ctx2d;
+				canvasData.canvas = ctx2d.canvas;
+				setCanvasSize();
+				draw();
+			}
+		});
+	})
+
+	watch(
+		[() => props.value, () => props.unit, () => props.min, () => props.max, () => props.fixed, () => props.isActive],
+		() => {
+			draw()
+		}
+	)
+</script>
+
+<style scoped>
+	.gauge-wrap {
+		width: 100%;
+		display: flex;
+		border-radius: 10%;
+		flex-direction: column;
+		align-items: center;
+		/* background: #1d1d1d; */
+	}
+
+	.canvas-wrapper {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.gauge-title {
+		font-size: 36rpx;
+		color: #fff;
+		margin: 6rpx 0;
+	}
+</style>

@@ -1,0 +1,171 @@
+<template>
+	<!-- 全屏遮罩：点击空白关闭 -->
+	<view class="modal-mask" v-if="visible" @touchend="handleClose">
+		<!-- 弹窗容器：阻止事件冒泡，点击内容区不关闭 -->
+		<view class="modal-container" @touchend.stop="() => {}">
+			<!-- 主标题 -->
+			<text class="main-title">PRESET PROGRAMS</text>
+
+			<!-- 🔥 核心修复：用 scroll-view 替代原生 overflow 滚动，兼容安卓 -->
+			<scroll-view class="cards-scroll" scroll-y="true">
+				<!-- 卡片网格：保留你原有的所有样式/布局 -->
+				<view class="cards-grid">
+					<m1-item
+						v-for="(program: ProgramItem, index) in programsList"
+						:key="index"
+						:title="program.title"
+						:features="program.features"
+						:selected-title="innserSelectedTitle"
+						@click="handleProgramClick"
+						@select="handleProgramSelect"
+					/>
+				</view>
+			</scroll-view>
+
+			<!-- 底部水印+返回按钮 -->
+			<view class="footer-wrapper">
+				<view class="back-btn" @touchend.stop="handleClose">
+					<text class="back-icon">↩</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { playClickSound } from '@/utils/common.uts';
+	import M1Item from '@/components/m1-item/m1-item.uvue';
+	import { programsList, ProgramItem } from '@/data/m1-programs.uts';
+
+	// 运行时Props声明（零类型冲突）
+	const props = defineProps({
+		visible: {
+			type: Boolean,
+			default: false
+		},
+		selectedTitle: {
+			type: String,
+			default: ''
+		}
+	})
+
+	// 数组形式Emits（零类型报错）
+	const emit = defineEmits(['close', 'program-select'])
+	
+	// 当前点击一次选中的卡片名称
+	const innserSelectedTitle = ref('');	
+	// 当前选中的卡片名称，跟随外部改变而改变
+	watch(
+		() : string => props.selectedTitle,
+		// 回调参数显式标注类型
+		(v : string) : void => {
+			innserSelectedTitle.value = v
+		}
+	)
+
+	// 关闭弹窗
+	const handleClose = () => {
+		playClickSound();
+		emit('close');
+	}
+
+	// 点击程序卡片：向父组件抛出选中的程序
+	const handleProgramClick = (title: string) => {
+		playClickSound();
+		// 将点击两次选中的卡片返回
+		emit('program-select', title);
+		// 如需点击后自动关闭弹窗，取消下面注释
+		handleClose();
+	}
+	
+	// 选中卡片
+	const handleProgramSelect = (title: string) => {
+		console.log(title);
+		playClickSound();
+		innserSelectedTitle.value = title;
+	}
+</script>
+
+<style scoped>
+	/* 全屏遮罩：纯黑背景、全屏覆盖 */
+	.modal-mask {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: #000000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 9999;
+	}
+
+	/* 弹窗容器：flex布局，内容区自适应，footer固定底部 */
+	.modal-container {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		padding: 0 40rpx 10rpx 40rpx;
+		box-sizing: border-box;
+		position: relative;
+	}
+
+	/* 主标题：居中、大字号、加粗 */
+	.main-title {
+		font-size: 64rpx;
+		font-weight: bold;
+		color: #ffffff;
+		margin-bottom: 40rpx;
+		line-height: 1.2;
+		text-align: center;
+	}
+
+	/* 🔥 修复：滚动容器（uni-app-x 官方标准，安卓100%兼容） */
+	.cards-scroll {
+		flex: 1;
+		width: 100%;
+	}
+
+	/* 卡片网格：保留你原有布局，删除 overflow:auto 彻底消除报错 */
+	.cards-grid {
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		justify-content: space-between;
+	}
+
+	.footer-wrapper {
+		width: 100%;
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		justify-content: space-between;
+		margin-top: auto;
+	}
+	
+	.brand-text {
+		font-size: 72rpx;
+		font-weight: bold;
+		color: #fff;
+		opacity: 0.15;
+	}
+	
+	/* 返回按钮容器 */
+	.back-btn {
+		width: 80rpx;
+		height: 80rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	/* 返回图标（兼容所有设备） */
+	.back-icon {
+		font-size: 80rpx;
+		font-weight: bold;
+		color: #fff;
+	}
+</style>

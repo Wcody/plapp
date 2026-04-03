@@ -1,0 +1,188 @@
+<template>
+	<!-- 全屏遮罩层 -->
+	<view class="modal-mask" v-if="visible" @touchend="handleClose">
+		<!-- 弹窗容器 ✅ 关键修复：阻止触摸事件冒泡 -->
+		<view class="modal-container" @touchend.stop="() => {}">
+			<!-- 顶部标题栏 水平布局 -->
+			<view class="modal-header">
+				<text class="title"></text>
+				<view class="close-btn" @touchend="handleClose">
+					<text class="close-icon">×</text>
+				</view>
+			</view>
+
+			<!-- 固定高度内容框 -->
+			<view class="modal-body">
+				<view class="content-page">
+					<view class="section">
+						<text class="section-title">PROGRAM GUIDE</text>
+						<view class="item-list">
+							<view class="list-item">
+								<text class="dot">•</text>
+								<text class="list-text">Each preset mode program uses a specific combination of frequencies to support different aspects ofrecovery, circulation,and nervous system balance.</text>
+							</view>
+							<view class="list-item">
+								<text class="dot">•</text>
+								<text class="list-text">Choose the mode that is most appropriate for your needs.</text>
+							</view>
+							<view class="list-item">
+								<text class="dot">•</text>
+								<text class="list-text">You can adjust the intensity to your comfort.</text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { ref } from 'vue';
+	import { playClickSound } from '@/utils/common.uts';
+
+	const props = defineProps({
+		visible: {
+			type: Boolean,
+			default: false
+		}
+	})
+
+	const emit = defineEmits(['close']);
+	const currentIndex = ref(0);
+
+	// 关闭弹窗
+	const handleClose = () => {
+		playClickSound();
+		currentIndex.value = 0;
+		emit('close');
+	};
+
+	// 上一页
+	const toPrev = () => {
+		playClickSound();
+		if (currentIndex.value > 0) {
+			currentIndex.value--;
+		}
+	};
+
+	// 下一页
+	const toNext = () => {
+		playClickSound();
+		if (currentIndex.value < 1) {
+			currentIndex.value++;
+		}
+	};
+</script>
+
+<style scoped>
+	/* 遮罩层 */
+	.modal-mask {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.7);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 999;
+	}
+
+	/* 弹窗容器 */
+	.modal-container {
+		width: 86%;
+		background-color: #000;
+		border-radius: 12rpx;
+		border: 2rpx solid #333;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	/* 标题栏 */
+	.modal-header {
+		padding: 30rpx;
+		/* border-bottom: 1rpx solid #333; */
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.title {
+		font-size: 36rpx;
+		color: #fff;
+		font-weight: bold;
+	}
+
+	.close-btn {
+		width: 50rpx;
+		height: 50rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.close-icon {
+		font-size: 56rpx;
+		font-weight: 600;
+		color: #fff;
+	}
+
+	/* 内容固定高度 */
+	.modal-body {
+		padding: 30rpx;
+		height: 520rpx;
+	}
+
+	.content-page {
+		width: 100%;
+	}
+
+	.section {
+		margin-bottom: 40rpx;
+	}
+
+	.section-title {
+		font-size: 32rpx;
+		color: #fff;
+		font-weight: 600;
+		margin-bottom: 24rpx;
+	}
+
+	.caution-red {
+		color: #f44336;
+	}
+
+	/* 列表样式 */
+	.item-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.list-text {
+		margin-bottom: 10rpx;
+	}
+
+	.list-item {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		margin-bottom: 20rpx;
+	}
+
+	.dot {
+		font-size: 26rpx;
+		color: #fff;
+		margin-right: 16rpx;
+	}
+
+	.list-text {
+		font-size: 26rpx;
+		color: #ccc;
+		line-height: 1;
+		flex: 1;
+	}
+</style>

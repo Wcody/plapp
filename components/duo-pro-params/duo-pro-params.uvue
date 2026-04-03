@@ -1,0 +1,160 @@
+<template>
+	<view class="channel-panel">
+		<!-- 顶部模式标签 -->
+		<view class="mode-tag">
+			<text class="mode-text">{{ mode }}</text>
+		</view>
+
+		<!-- 参数卡片容器 -->
+		<view class="params-card">
+			<duo-pro-param v-for="(param, index) in params" :key="index" :title="param.title" :value="param.value"
+				:unit="param.unit" :isActive="param.isActive" :min="param.min" :max="param.max" :step="param.step"
+				:fixed="param.fixed" @click="handleParamClick" @select="handleParamSelect" />
+		</view>
+
+		<!-- 底部控制区 -->
+		<view class="control-area">
+			<text class="channel-letter">{{ channel }}</text>
+			<view class="control-buttons">
+				<view class="control-btn" :class="{ active: !isRunning }" @touchend.stop="handleStart">
+					<text class="btn-text">START</text>
+				</view>
+				<view class="control-btn" :class="{ active: isRunning }" @touchend.stop="handleStop">
+					<text class="btn-text">STOP</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { playClickSound } from '@/utils/common.uts';
+	import DuoProParam from '@/components/duo-pro-param/duo-pro-param.uvue';
+	import { ParamItem } from '@/data/duo-config.uts'
+
+	// Props声明
+	const props = defineProps({
+		channel: { type: String, default: 'A' },
+		mode: { type: String, default: 'DAMPED OSCILLATION' },
+		params: { type: Array<ParamItem>, default: () => [] },
+		isRunning: { type: Boolean, default: false }
+	})
+
+	// 事件声明
+	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop'])
+
+	// 参数点击事件
+	const handleParamClick = (param : ParamItem) => {
+		playClickSound();
+		emit('param-click', param);
+	};
+
+	// 参数选中事件
+	const handleParamSelect = (param : ParamItem) => {
+		playClickSound();
+		emit('param-select', param);
+	};
+
+	// 启动按钮
+	const handleStart = () => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('start');
+	};
+	
+	// 停止按钮
+	const handleStop = () => {
+		if (!props.isRunning) return;
+		playClickSound();
+		emit('stop');
+	};
+</script>
+
+<style scoped>
+	.channel-panel {
+		width: 48%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	/* 模式标签：蓝绿渐变 */
+	.mode-tag {
+		width: 100%;
+		height: 80rpx;
+		border-radius: 16rpx;
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 30rpx;
+	}
+
+	.mode-text {
+		font-size: 28rpx;
+		font-weight: bold;
+		color: #fff;
+		line-height: 1;
+	}
+
+	/* 参数卡片容器 */
+	.params-card {
+		width: 100%;
+		background: #000;
+		border: 2rpx solid #fff;
+		border-radius: 24rpx;
+		padding: 40rpx 20rpx;
+		box-sizing: border-box;
+		margin-bottom: 40rpx;
+	}
+
+	/* 控制区 */
+	.control-area {
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 20rpx;
+		box-sizing: border-box;
+	}
+
+	/* 通道大字母（A/B） */
+	.channel-letter {
+		font-size: 120rpx;
+		font-weight: bold;
+		color: #fff;
+		line-height: 1;
+	}
+
+	.control-buttons {
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* 按钮：未选中态 */
+	.control-btn {
+		width: 200rpx;
+		height: 60rpx;
+		border-radius: 30rpx;
+		border: 2rpx solid #fff;
+		background: #000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 20rpx;
+	}
+
+	/* 按钮：选中态（蓝绿渐变） */
+	.control-btn.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		border: none;
+	}
+
+	.btn-text {
+		font-size: 36rpx;
+		font-weight: bold;
+		color: #fff;
+		line-height: 1;
+	}
+</style>

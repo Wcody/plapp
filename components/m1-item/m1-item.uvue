@@ -1,0 +1,104 @@
+<template>
+	<!-- 卡片容器：阻止冒泡，点击不触发蒙版关闭 -->
+	<view class="card-container" @touchend.stop="handleCardClick" :class="{ 'active': isSelected}">
+		<!-- 卡片标题 -->
+		<text class="card-title">{{ title }}</text>
+		<!-- 功能列表 -->
+		<view class="features-list">
+			<view class="feature-item" v-for="(item, index) in features" :key="index">
+				<text class="feature-dot">·</text>
+				<text class="feature-text">{{ item }}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	// 运行时Props声明（零类型冲突、零重名报错）
+	const props = defineProps({
+		title: {
+			type: String,
+			default: ''
+		},
+		features: {
+			type: Array,
+			default: () => []
+		},
+		selectedTitle: {
+			type: String,
+			default: ''
+		}
+	})
+
+	// 数组形式Emits（零类型报错）
+	const emit = defineEmits(['click', 'select'])
+	
+	const isSelected = computed(() => {
+		return props.selectedTitle == props.title && props.title != ''
+	})
+
+	// 卡片点击事件
+	const handleCardClick = () => {
+		if (isSelected.value) {
+			emit('click', props.title)
+		} else {
+			emit('select', props.title)
+		}
+	}
+</script>
+
+<style scoped>
+	/* 卡片容器：仅布局样式，无文字样式 */
+	.card-container {
+		width: 48%;
+		background-color: #1a1a1a;
+		border-radius: 8rpx;
+		padding: 30rpx;
+		margin-bottom: 30rpx;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* 卡片标题：文字样式仅在text标签（符合uni-app-x规范） */
+	.card-title {
+		font-size: 28rpx;
+		font-weight: bold;
+		color: #ffffff;
+		margin-bottom: 10rpx;
+		line-height: 1.2;
+	}
+
+	/* 列表容器 */
+	.features-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* 列表项：水平布局（圆点+文字） */
+	.feature-item {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+	}
+
+	/* 列表圆点 */
+	.feature-dot {
+		font-size: 24rpx;
+		color: #ffffff;
+		margin-right: 12rpx;
+		line-height: 1.5;
+	}
+
+	/* 列表文字 */
+	.feature-text {
+		font-size: 24rpx;
+		color: #ffffff;
+		line-height: 1.2;
+		opacity: 0.9;
+		flex: 1;
+	}
+	
+	.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+	}
+</style>

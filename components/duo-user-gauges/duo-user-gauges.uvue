@@ -1,0 +1,166 @@
+<template>
+	<view class="channel-panel">
+		<!-- 固定模式文本 -->
+		<view class="mode-tag" :class="{active: hasDamos}" @touchend.stop="handleDamos">
+			<text class="mode-text">{{mode}}</text>
+		</view>
+
+		<!-- 静态写死3个仪表盘，彻底删除v-for，无遍历报错 -->
+		<view class="gauges-card">
+			<scroll-view class="gauges">
+				<duo-user-gauge class="gauge" v-for="(param, index) in params" :key="index" :title="param.title" :value="param.value"
+					:unit="param.unit" :isActive="param.isActive" :min="param.min" :max="param.max" :step="param.step"
+					:fixed="param.fixed" @click="handleParamClick" @select="handleParamSelect" />
+	
+			</scroll-view>
+		</view>
+
+		<view class="control-area">
+			<text class="channel-letter">{{channel}}</text>
+			<view class="control-buttons">
+				<view class="control-btn" :class="{ active: isRunning }" @touchend.stop="handleStart">
+					<text class="btn-text">START</text>
+				</view>
+				<view class="control-btn" :class="{ active: !isRunning }" @touchend.stop="handleStop">
+					<text class="btn-text">STOP</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { playClickSound } from '@/utils/common.uts';
+	import duoUserGauge from '@/components/duo-user-gauge/duo-user-gauge.uvue';
+	import { ParamItem } from '@/data/duo-config.uts'
+
+	// 无任何数组/遍历相关代码
+	const props = defineProps({
+		channel: { type: String, default: 'A' },
+		mode: { type: String, default: 'DAMPED OSCILLATION' },
+		params: { type: Array<ParamItem>, default: () => [] },
+		isRunning: { type: Boolean, default: false },
+		hasDamos: { type: Boolean, default: false }
+	})
+	// 事件声明
+	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop', 'damos'])
+	
+	// 参数点击事件
+	const handleParamClick = (param : ParamItem) => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('param-click', param);
+	};
+	
+	// 参数选中事件
+	const handleParamSelect = (param : ParamItem) => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('param-select', param);
+	};
+	
+	// 启动按钮
+	const handleStart = () => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('start');
+	};
+	
+	// 停止按钮
+	const handleStop = () => {
+		if (!props.isRunning) return;
+		playClickSound();
+		emit('stop');
+	};
+	
+	// 点击阻尼震荡
+	const handleDamos = () => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('damos', !props.hasDamos);
+	};
+</script>
+
+<style scoped>
+	.channel-panel {
+		width: 48%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.mode-tag {
+		width: 100%;
+		height: 80rpx;
+		border-radius: 16rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2rpx solid #fff;
+	}
+	
+	.mode-tag.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+	}
+	
+	.mode-text {
+		font-size: 28rpx;
+		font-weight: bold;
+		color: #fff;
+		line-height: 1;
+	}
+
+	.gauges-card {
+		align-items: center;
+		width: 100%;
+		border: 2rpx solid #fff;
+		border-radius: 24rpx;
+		padding: 20rpx;
+		margin: 30rpx 0 10rpx 0;
+		flex: 1;
+	}
+
+	.gauges {
+		flex: 1;
+		justify-content: space-between;
+	}
+	
+	.gauge {
+		width: 240rpx;
+		height: 240rpx;
+	}
+
+	.control-area {
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.channel-letter {
+		font-size: 160rpx;
+		color: #fff;
+	}
+
+	.control-btn {
+		width: 200rpx;
+		height: 60rpx;
+		border: 2rpx solid #fff;
+		border-radius: 30rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 20rpx;
+	}
+	
+	/* 按钮：选中态（蓝绿渐变） */
+	.control-btn.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		border: none;
+	}
+
+	.btn-text {
+		color: #fff;
+	}
+</style>

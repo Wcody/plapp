@@ -1,0 +1,117 @@
+<template>
+	<view class="container">
+		<image class="logo" src="/static/logo.png"></image>
+		<text class="title">{{ title }}</text>
+
+		<view class="custom-box">
+			<button class="custom-btn" @click="customSelect(1)">PL-M1</button>
+			<button class="custom-btn" @click="customSelect(2)">PL-DUO-USER</button>
+			<button class="custom-btn" @click="customSelect(3)">PL-DUO-PRO</button>
+		</view>
+		<!-- 底部居中扫一扫按钮 -->
+		<view class="scan-box">
+			<button class="scan-btn" @click="scanCode">Scan QR Code</button>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+import { ref } from 'vue'
+
+const title = ref('Welcome to use PL-APP!')
+
+// 扫一扫
+const scanCode = () => {
+	uni.scanCode({
+		success: (res) => {
+			console.log('result:', res.result)
+			uni.showToast({
+				title: 'Scan success',
+				icon: 'success'
+			})
+		},
+		fail: () => {
+			uni.showToast({
+				title: 'Scan failed',
+				icon: 'none'
+			})
+		}
+	})
+}
+
+const openWinByOperId = (operId: number) => {
+	let url: string = '/pages/index/index';
+	if (operId == 1) {
+		url = '/pages/m1/m1'
+	} else if (operId == 2) {
+		url = '/pages/duo/user'
+	} else if (operId == 3) {
+		url = '/pages/duo/duo'
+	}
+	uni.navigateTo({
+	  url: url,
+	  success(result) {
+	    console.log('navigateTo success', result.errMsg)
+	  },
+	  fail(error) {
+	    console.log('navigateTo fail', error.errMsg)
+	  },
+	  complete(result) {
+	    console.log('navigateTo complete', result.errMsg)
+	  },
+	})
+}
+
+const customSelect = (operId: number) => {
+	openWinByOperId(operId);
+}
+</script>
+
+<style>
+/* 主容器：黑色主题 + 居中布局 */
+.container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 0 30px;
+	box-sizing: border-box;
+	background-color: #000; /* 纯黑 */
+	color: #FFFFFF; /* 白色文字 */
+}
+
+.logo {
+	width: 100px;
+	height: 100px;
+	margin-top: 120px;
+}
+
+.title {
+	font-size: 18px;
+	color: #FFFFFF;
+	font-weight: 600;
+	text-align: center;
+	margin-top: 30px;
+}
+
+/* 按钮固定底部 */
+.scan-box {
+	margin-top: auto;
+	margin-bottom: 70px;
+}
+
+.scan-btn {
+	background: linear-gradient(to right, #2a78b5, #64d2cb);
+	color: #FFFFFF;
+	border-radius: 10px;
+	padding: 14px 36px;
+	font-size: 18px;
+	font-weight: 600;
+	border: none;
+}
+
+.custom-btn {
+	margin-bottom: 20rpx;
+	font-weight: 600;
+}
+</style>

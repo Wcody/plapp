@@ -1,0 +1,203 @@
+<template>
+	<view class="control-card">
+		<text class="card-title">{{ title }}</text>
+		<view class="slider-row">
+			<!-- 减号按钮 -->
+			<view class="btn-round btn-margin" v-if="!disabled" @touchstart="decrement" @touchend="stopAdjust"
+				@touchcancel="stopAdjust">
+				<text class="btn-icon">-</text>
+			</view>
+			<!-- 原生slider（UVue标准写法） -->
+			<slider class="custom-slider" :min="low" :max="high" :step="stepVal" :value="localValue"
+				@changing="onSliderChange" @change="onSliderChange" active-color="#3A7B8C" background-color="#1A3A4A"
+				block-color="#4ECDC4" :block-size="18" :disabled="disabled" />
+			<!-- 加号按钮 -->
+			<view class="btn-round" v-if="!disabled" @touchstart="increment" @touchend="stopAdjust"
+				@touchcancel="stopAdjust">
+				<text class="btn-icon">+</text>
+			</view>
+		</view>
+		<view class="value-row">
+			<text class="value-text">{{ displayValue }}</text>
+			<text class="value-unit">{{ unitStr }}</text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { ref, computed, watch } from 'vue'
+	import { playClickSound, formatTime, formatFreq } from '@/utils/common.uts';
+
+	// ==================== Props 严格UTS类型定义 ====================
+	interface Props {
+		title : string
+		modelValue : number
+		low : number
+		high : number
+		stepVal : number
+		unitStr : string
+		timeFormat : boolean
+		disabled : boolean,
+		freqFormat: boolean
+	}
+
+	// 默认值（UTS 不支持复杂函数默认值，极简写法）
+	const props = withDefaults(defineProps<Props>(), {
+		low: 0,
+		high: 100,
+		stepVal: 1,
+		unitStr: '',
+		timeFormat: false,
+		disabled: false,
+		freqFormat: false
+	})
+
+	// ==================== Emits 固定写法 ====================
+	interface Emits {
+		(e : 'update:modelValue', val : number) : void;
+	}
+	const emit = defineEmits<Emits>()
+	const intervalHandle = ref(0);
+	const TIMEOUT = 100;
+
+	// ==================== 双向绑定本地值 ====================
+	const localValue = ref<number>(props.modelValue)
+
+	// ✅ 修复 watch：UVue UTS 标准显式写法
+	watch(
+		//  getter 显式返回 number
+		() : number => props.modelValue,
+		// 回调参数显式标注类型
+		(v : number) : void => {
+			localValue.value = v
+		}
+	)
+
+	// ─── 显示值（支持外部自定义格式化）─────────────────────────────────────────
+	const displayValue = computed(() => {
+		if (props.freqFormat) return formatFreq(localValue.value)
+		if (props.timeFormat) return formatTime(localValue.value)
+		return `${localValue.value}`
+	})
+
+	// ==================== 事件处理（修复所有UVue事件取值） ====================
+
+	// ✅ 修复：UVue slider changing 直接返回 value，不是 event.detail！
+	function onSliderChange(value : UniSliderChangeEvent) : void {
+		playClickSound()
+		localValue.value = value.detail.value
+		emit('update:modelValue', localValue.value)
+	}
+
+	// 减号
+	function decrement() : void {
+		//先强制对齐步进值的倍数
+		localValue.value = Math.round(localValue.value / props.stepVal) * props.stepVal;
+		const nextVal : number = Math.max(props.low, localValue.value - props.stepVal)
+		if (localValue.value == nextVal) return
+		playClickSound()
+		localValue.value = nextVal
+		emit('update:modelValue', nextVal)
+		if (intervalHandle.value == 0) {
+			intervalHandle.value = setInterval(() => decrement(), TIMEOUT);
+		}
+	}
+
+	// 加号
+	function increment() : void {
+		//先强制对齐步进值的倍数
+		localValue.value = Math.round(localValue.value / props.stepVal) * props.stepVal;
+		const nextVal : number = Math.min(props.high, localValue.value + props.stepVal)
+		if (localValue.value == nextVal) return
+		playClickSound()
+		localValue.value = nextVal
+		emit('update:modelValue', nextVal);
+		if (intervalHandle.value == 0) {
+			intervalHandle.value = setInterval(() => increment(), TIMEOUT);
+		}
+	}
+
+	// 长按取消事件
+	function stopAdjust() : void {
+		if (intervalHandle.value != 0) {
+			clearInterval(intervalHandle.value);
+			intervalHandle.value = 0;
+		}
+	}
+</script>
+
+<style scoped>
+	/* 样式完全不变，正常运行 */
+	.control-card {
+		background-color: #1A1A1A;
+		border-radius: 24rpx;
+		padding: 14rpx 32rpx;
+		margin: 0 20rpx 20rpx 20rpx;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.card-title {
+		color: #fff;
+		font-size: 36rpx;
+		font-weight: 500;
+		margin-bottom: 14rpx;
+	}
+
+	.slider-row {
+		display: flex;
+		height: 64rpx;
+		flex-direction: row;
+		align-items: center;
+		width: 100%;
+	}
+
+	.btn-margin {
+		margin-right: 24rpx;
+	}
+
+	.custom-slider {
+		flex: 1;
+		margin-right: 24rpx;
+	}
+
+	.btn-round {
+		width: 64rpx;
+		height: 64rpx;
+		border-radius: 50%;
+		border: 6rpx solid #fff;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.btn-icon {
+		color: #fff;
+		font-size: 48rpx;
+		font-weight: bold;
+		margin-bottom: 6rpx;
+	}
+
+	.value-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		margin-top: 10rpx;
+	}
+
+	.value-text {
+		color: #fff;
+		font-size: 44rpx;
+		font-weight: 600;
+	}
+
+	.value-unit {
+		color: #888;
+		font-size: 28rpx;
+		margin-left: 10rpx;
+		margin-top: 10rpx;
+	}
+</style>

@@ -1,0 +1,95 @@
+<template>
+	<view class="param-item" @touchend.stop="handleClick">
+		<text class="param-title">{{ title }}</text>
+		<view class="param-value-box" :class="{ active: isActive }">
+			<text class="param-value">{{ value }}</text>
+			<text class="param-unit">{{ unit }}</text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { playClickSound } from '../../utils/common'
+	import { ParamItem, createParamItem } from '@/data/duo-config.uts'
+	// Props声明（类型安全）
+	const props = defineProps({
+		title: { type: String, default: '' },
+		value: { type: Number, default: 0 },
+		unit: { type: String, default: '' },
+		isActive: { type: Boolean, default: false },
+		min: { type: Number, default: 1 },
+		max: { type: Number, default: 100 },
+		fixed: { type: Number, default: 0 },
+		step: { type: Number, default: 1 },
+	})
+
+	// 事件声明
+	const emit = defineEmits(['click', 'select'])
+
+	// 点击事件（带音效）
+	const handleClick = () => {
+		const item = createParamItem(props.title, props.value, props.unit, props.isActive, props.min, props.max, props.fixed, props.step);
+		if (props.isActive) {
+			playClickSound();
+			// 点击进入配置
+			emit('click', item)
+		} else if (!props.isActive) {
+			// 仅仅高亮选中
+			emit('select', item);
+		}
+	}
+</script>
+
+<style scoped>
+	.param-item {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-bottom: 40rpx;
+	}
+
+	.param-title {
+		font-size: 40rpx;
+		font-weight: 600;
+		color: #fff;
+		margin-bottom: 20rpx;
+		line-height: 1.2;
+	}
+
+	/* 参数值容器：未选中态 */
+	.param-value-box {
+		width: 70%;
+		height: 80rpx;
+		border-radius: 16rpx;
+		border: 2rpx solid #fff;
+		background: #000;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* 选中态：蓝绿渐变背景（1:1还原设计图） */
+	.param-value-box.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		border: none;
+	}
+
+	.param-value {
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #fff;
+		line-height: 1;
+		margin-right: 8rpx;
+		margin-top: 5rpx;
+	}
+
+	.param-unit {
+		font-size: 32rpx;
+		color: #fff;
+		line-height: 1;
+		opacity: 0.9;
+		margin-top: 20rpx;
+	}
+</style>

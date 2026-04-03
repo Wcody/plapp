@@ -1,0 +1,29 @@
+<template>
+	<scroll-view class="container">
+		<duo-user></duo-user>
+	</scroll-view>
+</template>
+
+<script setup lang="uts">
+	import { ref, onMounted, onUnmounted } from 'vue'
+	import { playClickSound } from '@/utils/common.uts';
+
+	import DuoUser from '@/components/duo-user/duo-user.uvue';
+	
+	onReady(() => {
+		// 全局广播事件，让子组件的画布可以正常工作
+		uni.$emit('duo-page-ready')
+	})
+</script>
+
+<style scoped>
+	.container {
+		background-color: #000;
+		height: 100%;
+		padding: 10rpx 10rpx;
+		box-sizing: border-box;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+	}
+</style>

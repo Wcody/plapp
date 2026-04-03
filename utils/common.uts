@@ -1,0 +1,36 @@
+// utils/audio.uts
+// 公共音频工具类 —— 全局点击音效
+
+/**
+ * 触发全局点击音效（仅广播事件，不处理播放逻辑）
+ */
+export function playClickSound() : void {
+	// 全局广播事件
+	uni.$emit('play-click-sound')
+}
+
+/**
+ * 格式化分钟数为 MM:SS 时间字符串
+ * @param minutes 分钟数（支持整数/小数，如 26、26.5、5.25）
+ * @returns 格式化后的时间字符串，例如 26:00、26:30、05:15
+ */
+export const formatTime = (minutes: number): string => {
+	// 1. 取整数分钟
+	const mins = Math.floor(minutes);
+	// 2. 计算小数部分对应的秒数
+	const seconds = Math.round((minutes - mins) * 60);
+	
+	// 3. 分钟、秒数 补零到两位，拼接结果
+	const formatMins = mins.toString().padStart(2, '0');
+	const formatSecs = seconds.toString().padStart(2, '0');
+	
+	return `${formatMins}:${formatSecs}`;
+};
+
+/**
+ * 格式化时间字符串32.5
+ */
+export const formatFreq = (freq : number) : string => {
+	// 保留1位小数（核心修复：替换错误的 Math 写法）
+	  return freq.toFixed(1);
+};

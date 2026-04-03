@@ -1,0 +1,285 @@
+<template>
+	<!-- 全屏遮罩：点击空白关闭 -->
+	<view class="modal-mask" v-if="visible" @touchend="handleClose">
+		<!-- 弹窗容器：阻止事件冒泡 -->
+		<view class="modal-container" @touchend.stop="() => {}">
+			<!-- 核心内容区 -->
+			<view class="content-wrapper">
+				<text class="main-title">{{currentProgram.title}}</text>
+				<text class="desc-text">{{currentProgram.desc}}</text>
+				<text class="section-title">BEST FOR</text>
+
+				<view class="list-wrapper">
+					<view class="list-item">
+						<text class="list-dot">·</text>
+						<text class="list-text">Post-workout fatigue</text>
+					</view>
+					<view class="list-item">
+						<text class="list-dot">·</text>
+						<text class="list-text">Overworked muscles</text>
+					</view>
+					<view class="list-item">
+						<text class="list-dot">·</text>
+						<text class="list-text">General body heaviness</text>
+					</view>
+					<view class="list-item">
+						<text class="list-dot">·</text>
+						<text class="list-text">End-of-day decompression</text>
+					</view>
+					<view class="list-item">
+						<text class="list-dot">·</text>
+						<text class="list-text">Anyone feeling "wired and tired"</text>
+					</view>
+				</view>
+
+				<view class="params-wrapper">
+					<view class="param-item">
+						<text class="param-label">Frequency</text>
+						<view class="param-value-row">
+							<text class="param-value">{{currentProgram.totalFreqs}}</text>
+							<text class="param-unit">Hz</text>
+						</view>
+					</view>
+					<view class="param-divider"></view>
+					<view class="param-item">
+						<text class="param-label">Time</text>
+						<view class="param-value-row">
+							<text class="param-value">26:00</text>
+							<text class="param-unit">Min</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="start-btn" @touchend="handleStart">
+					<text class="start-btn-text">START</text>
+				</view>
+			</view>
+
+			<!-- ✅ 修复：底部返回按钮 + 品牌文字（完美显示+点击关闭） -->
+			<view class="footer-wrapper">
+				<!-- <text class="brand-text">EQ FLUX WAVE</text> -->
+				<!-- 返回按钮：阻止冒泡 + 点击关闭 -->
+				<view class="back-btn" @touchend.stop="handleClose">
+					<text class="back-icon">↩</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+	import { ref } from 'vue';
+	import { playClickSound } from '@/utils/common.uts';
+	import { ProgramItem, getProgramsMap, programsList } from '@/data/m1-programs.uts';
+
+	// Props声明
+	const props = defineProps({
+		title: {type: String, default: ''},
+		visible: { type: Boolean, default: false }
+	})
+	
+	const programsMap = getProgramsMap();
+	
+	const currentProgram = computed<ProgramItem>(() => {
+		const item = programsMap[props.title];
+		if (item != null) {
+			return item;
+		} else {
+			return programsList[0];
+		}
+	})
+
+	// 事件抛出
+	const emit = defineEmits(['close', 'start']);
+
+	// 关闭弹窗
+	const handleClose = () => {
+		playClickSound();
+		emit('close');
+	};
+
+	// 开始按钮
+	const handleStart = () => {
+		playClickSound();
+		emit('start', props.title);
+		handleClose();
+	};
+</script>
+
+<style scoped>
+	/* 全屏遮罩 */
+	.modal-mask {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: #000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 9999;
+	}
+
+	/* 弹窗容器 */
+	.modal-container {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		padding: 0 40rpx 10rpx 40rpx;
+		box-sizing: border-box;
+		position: relative;
+	}
+
+	/* 内容区 */
+	.content-wrapper {
+		width: 100%;
+		max-width: 750rpx;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		flex: 1;
+	}
+
+	.main-title {
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #fff;
+		margin-bottom: 20rpx;
+	}
+
+	.desc-text {
+		font-size: 26rpx;
+		color: #fff;
+		line-height: 1.4;
+		margin-bottom: 40rpx;
+		opacity: 0.9;
+	}
+
+	.section-title {
+		font-size: 36rpx;
+		font-weight: bold;
+		color: #fff;
+		margin-bottom: 20rpx;
+	}
+
+	.list-wrapper {
+		width: 100%;
+		margin-bottom: 40rpx;
+	}
+
+	.list-item {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		margin-bottom: 8rpx;
+	}
+
+	.list-dot {
+		font-size: 26rpx;
+		color: #fff;
+		margin-right: 16rpx;
+	}
+
+	.list-text {
+		font-size: 26rpx;
+		color: #fff;
+		opacity: 0.9;
+	}
+
+	.params-wrapper {
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-around;
+		margin-bottom: 80rpx;
+	}
+
+	.param-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+	
+	.param-value-row {
+		flex-direction: row;
+	}
+
+	.param-label {
+		font-size: 40rpx;
+		font-weight: 600;
+		color: #fff;
+		margin-bottom: 20rpx;
+	}
+
+	.param-value {
+		font-size: 48rpx;
+		font-weight: bold;
+		color: #fff;
+	}
+
+	.param-unit {
+		font-size: 32rpx;
+		opacity: 0.8;
+		margin-left: 16rpx;
+		margin-top: 16rpx;
+		color: #fff;
+	}
+
+	.param-divider {
+		width: 2rpx;
+		height: 120rpx;
+		background-color: #fff;
+		opacity: 0.5;
+	}
+
+	.start-btn {
+		width: 100%;
+		height: 96rpx;
+		border-radius: 48rpx;
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.start-btn-text {
+		font-size: 64rpx;
+		font-weight: bold;
+		color: #fff;
+	}
+
+	.footer-wrapper {
+		width: 100%;
+		display: flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		justify-content: space-between;
+		margin-top: auto;
+	}
+
+	.brand-text {
+		font-size: 72rpx;
+		font-weight: bold;
+		color: #fff;
+		opacity: 0.15;
+	}
+
+	/* 返回按钮容器 */
+	.back-btn {
+		width: 80rpx;
+		height: 80rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* 返回图标（兼容所有设备） */
+	.back-icon {
+		font-size: 80rpx;
+		font-weight: bold;
+		color: #fff;
+	}
+</style>

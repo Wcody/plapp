@@ -1,0 +1,158 @@
+<template>
+	<view class="control-page">
+		<!-- A通道 -->
+		<duo-pro-params channel="A" mode="DAMPED OSCILLATION" :params="channelAParams" :isRunning="channelAIsRunning"
+			@param-click="handleChannelAParamClick" @param-select="handleChannelAParamSelect"
+			@start="handleChannelAStart" @stop="handleChannelAStop" />
+
+		<!-- B通道 -->
+		<duo-pro-params channel="B" mode="DAMPED OSCILLATION" :params="channelBParams" :isRunning="channelBIsRunning"
+			@param-click="handleChannelBParamClick" @param-select="handleChannelBParamSelect"
+			@start="handleChannelBStart" @stop="handleChannelBStop" />
+	</view>
+	<duo-param-config :visible="paramConfigVisible" @close="handleParamConfigClose" :min="configMin" :max="configMax" ,
+		:title="configTitle" :value="configValue" :step="configStep" :unit="configUnit"
+		@change="handleConfigChange"></duo-param-config>
+</template>
+
+<script setup lang="uts">
+	import { ref } from 'vue';
+	import DuoProParams from '@/components/duo-pro-params/duo-pro-params.uvue';
+	import DuoParamConfig from '@/components/duo-param-config/duo-param-config.uvue';
+	// 引入修复后的 type 类型
+	import { ParamItem } from '@/data/duo-config.uts'
+
+
+	// ========== 设置值相关 ===================
+	const configTitle = ref('Ihhh');
+	const configValue = ref(0);
+	const configMin = ref(1);
+	const configMax = ref(100);
+	const configStep = ref(1);
+	const configUnit = ref('Hz');
+	const configMode = ref('A');
+
+	// ============== 显示设置窗口 ==============
+	const paramConfigVisible = ref(false);
+	// ============== A通道状态 ==============
+	const channelAIsRunning = ref(true);
+	// 🔥 修复：UTS 标准写法，自动推导类型，无构造函数报错
+	const channelAParams = ref([
+		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
+		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.1, max: 20, fixed: 1, step: 0.1 },
+		{ title: 'Time', value: 60, unit: 's', isActive: false, min: 1, max: 60, fixed: 0, step: 1 },
+		{ title: 'Energy', value: 10, unit: 'J', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
+	] as ParamItem[]);
+
+	// ============== B通道状态 ==============
+	const channelBIsRunning = ref(false);
+	const channelBParams = ref([
+		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
+		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.1, max: 20, fixed: 1, step: 0.1 },
+		{ title: 'Time', value: 60, unit: 's', isActive: false, min: 1, max: 60, fixed: 0, step: 1 },
+		{ title: 'Energy', value: 10, unit: 'J', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
+	] as ParamItem[]);
+
+	// ============== A通道事件处理 ==============
+	const handleChannelAParamClick = (param : ParamItem) => {
+		configTitle.value = param.title;
+		configValue.value = param.value;
+		configMin.value = param.min;
+		configMax.value = param.max;
+		configStep.value = param.step;
+		configUnit.value = param.unit;
+		configMode.value = 'A';
+		paramConfigVisible.value = true;
+	};
+
+	// ============== A通道事件处理 ==============
+	const handleChannelAParamSelect = (param : ParamItem) => {
+		// 弹出设置窗口，并设置值
+		channelAParams.value = channelAParams.value.map((p : ParamItem) => ({
+			...p,
+			isActive: p.title === param.title
+		} as ParamItem));
+	};
+
+	const handleChannelAStart = () => {
+		channelAIsRunning.value = false;
+		console.log('A通道启动');
+	};
+
+	const handleChannelAStop = () => {
+		channelAIsRunning.value = true;
+		console.log('A通道停止');
+	};
+
+	// ============== B通道事件处理 ==============
+	const handleChannelBParamClick = (param : ParamItem) => {
+		configTitle.value = param.title;
+		configValue.value = param.value;
+		configMin.value = param.min;
+		configMax.value = param.max;
+		configStep.value = param.step;
+		configUnit.value = param.unit;
+		configMode.value = 'B';
+		paramConfigVisible.value = true;
+	};
+
+	// ============== B通道事件处理 ==============
+	const handleChannelBParamSelect = (param : ParamItem) => {
+		channelBParams.value = channelBParams.value.map((p : ParamItem) => ({
+			...p,
+			isActive: p.title === param.title
+		} as ParamItem));
+	};
+
+	const handleChannelBStart = () => {
+		channelBIsRunning.value = true;
+		console.log('B通道启动');
+	};
+
+	const handleChannelBStop = () => {
+		channelBIsRunning.value = false;
+		console.log('B通道停止');
+	};
+
+	const handleParamConfigClose = () => {
+		paramConfigVisible.value = false;
+	};
+
+	const handleConfigChange = (title : string, val : number) => {
+		if (configMode.value == 'A') {
+			channelAParams.value = channelAParams.value.map((p : ParamItem) => {
+				if (p.title == title) {
+					return {
+						...p,
+						value: val
+					} as ParamItem
+				} else {
+					return { ...p } as ParamItem;
+				}
+			});
+		} else {
+			channelBParams.value = channelBParams.value.map((p : ParamItem) => {
+				if (p.title == title) {
+					return {
+						...p,
+						value: val
+					} as ParamItem
+				} else {
+					return { ...p } as ParamItem;
+				}
+			});
+		}
+	}
+</script>
+
+<style scoped>
+	.control-page {
+		width: 100%;
+		background: #000;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-around;
+		padding: 10rpx 20rpx;
+		box-sizing: border-box;
+	}
+</style>

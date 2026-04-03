@@ -1,0 +1,357 @@
+<template>
+	<view class="container">
+		<view class="header">
+			<!-- 顶部导航栏 -->
+			<view class="navbar">
+				<!-- 文档图标 → 替换为文字，UVue不支持SVG -->
+				<view class="nav-item nav-icon" @touchend="openMenu">
+					<text class="icon-text">☰</text>
+				</view>
+
+				<!-- 模式切换 M/P -->
+				<view class="mode-switch">
+					<view class="mode-item">
+						<text class="mode-text" :class="{ 'mode-text-active': activeMode === 'M' }"
+							@touchend="switchMode('M')">M</text>
+					</view>
+					<view class="mode-item">
+						<text class="mode-text" :class="{ 'mode-text-active': activeMode === 'P' }"
+							@touchend="switchMode('P')">P</text>
+					</view>
+				</view>
+
+				<!-- 设置图标 → 替换为文字 -->
+				<view class="nav-item nav-icon" @touchend="openSettings">
+					<text class="icon-text">⚙</text>
+				</view>
+			</view>
+		</view>
+		<scroll-view class="client">
+			<view style="height: 2%;"></view>
+			<!-- 1. Intensity（强度）控制模块 -->
+			<m1-slider-control title="Intensity" :model-value="intensity"
+				@update:model-value="intensity = $event as number;" :low="1" :high="100" :step-val="1" unit-str="%" />
+
+			<!-- 2. Frequency（频率）控制模块 -->
+			<m1-slider-control title="Frequency" :model-value="frequency"
+				@update:model-value="frequency = $event as number;" :low="0.5" :high="20" :step-val="0.5" :disabled="isP || isRunning"
+				unit-str="Hz" freq-format />
+
+			<!-- 3. Time（时间）控制模块 -->
+			<m1-slider-control title="Time" :model-value="timeMinutes"
+				@update:model-value="timeMinutes = $event as number;" :low="0" :high="60" :step-val="1" :disabled="isP || isRunning"
+				unit-str="" time-format />
+		</scroll-view>
+		<!-- 底部水印+返回按钮 -->
+		<view class="footer-wrapper">
+			<!-- DEEP RECOVERY 预设模式按钮 -->
+			<view class="btn-recovery" :class="{ active: isM && hasDamos }" @touchend="applyDeepRecovery">
+				<text class="btn-recovery-text">{{ btnTitle }}</text>
+			</view>
+			<!-- START / STOP 控制按钮 -->
+			<view class="control-buttons">
+				<view class="btn-start" :class="{ active: isRunning }" @touchend="startDevice">
+					<text class="btn-text">START</text>
+				</view>
+				<view class="btn-stop" :class="{ active: !isRunning, 'btn-stop-inactive': isRunning }"
+					@touchend="stopDevice">
+					<text class="btn-text">STOP</text>
+				</view>
+			</view>
+		</view>
+	</view>
+	<m1-info-modal :visible="infoModalVisible" @close="infoModalClose"></m1-info-modal>
+	<m1-info-program :visible="infoProgramVisible" @close="infoProgramClose"></m1-info-program>
+	<m1-item-info :visible="itemInfoVisible" :title="selectedTitle" @close="itemInfoClose" @start="startDevice"></m1-item-info>
+	<m1-item-list :visible="itemListVisible" @close="itemListClose" @program-select="programSelect"></m1-item-list>
+</template>
+
+<script setup>
+	import { ref, computed, onMounted } from 'vue';
+	import M1SliderControl from '@/components/m1-slider-control/m1-slider-control.uvue'
+	import M1InfoModal from '@/components/m1-info-modal/m1-info-modal.uvue'
+	import M1InfoProgram from '@/components/m1-info-program/m1-info-program.uvue'
+	import M1ItemInfo from '@/components/m1-item-info/m1-item-info.uvue'
+	import M1ItemList from '@/components/m1-item-list/m1-item-list.uvue'
+	import { playClickSound } from '@/utils/common.uts';
+	import { getProgramsMap, ProgramItem, programsList } from '@/data/m1-programs.uts';
+
+	// ==================== 状态数据 ====================
+	const activeMode = ref<string>('M');
+	const intensity = ref<number>(100);
+	const frequency = ref<number>(10);
+	const timeMinutes = ref<number>(15.9);
+	const isRunning = ref<boolean>(false);
+	const infoModalVisible = ref<boolean>(false);
+	const infoProgramVisible = ref<boolean>(false);
+	const itemListVisible = ref<boolean>(false);
+	const itemInfoVisible = ref<boolean>(false);
+	// 是否启用阻尼震荡
+	const hasDamos = ref(false);
+	// M模式下，
+	const selectedTitle = ref('DEEP RECOVERY');
+	// 获取所有模式的Map
+	const programsMap = getProgramsMap();
+	// 当前选中的程序对象
+	const currentProgram = computed<ProgramItem>(() => {
+		const item = programsMap[selectedTitle.value];
+		if (item != null) {
+			return item;
+		} else {
+			return programsList[0];
+		}
+	})
+
+	// ==================== 模式切换 ====================
+	const switchMode = (mode : string) => {
+		if (isRunning.value) return;
+		if (activeMode.value == mode) return;
+		playClickSound()
+		activeMode.value = mode;
+	};
+
+	// ==================== 强度控制 ====================
+	const adjustIntensity = (step : number) => {
+		const newValue : number = intensity.value + step;
+		if (newValue >= 0 && newValue <= 100) {
+			intensity.value = newValue;
+		}
+	};
+	const onIntensityChange = (value : UniSliderChangeEvent) => {
+		intensity.value = value.detail.value;
+	};
+
+	const isM = computed(() => {
+		return activeMode.value == 'M'
+	});
+
+	const isP = computed(() => {
+		return activeMode.value == 'P'
+	});
+
+	const btnTitle = computed(() => {
+		if (isM.value) {
+			return "DAMPED OSCILLATION"
+		} else {
+			return selectedTitle.value
+		}
+	})
+
+	// ==================== 频率控制 ====================
+	const adjustFrequency = (step : number) => {
+		const newValue : number = frequency.value + step;
+		if (newValue >= 0 && newValue <= 20) {
+			frequency.value = newValue;
+		}
+	};
+	const onFrequencyChange = (value : UniSliderChangeEvent) => {
+		frequency.value = value.detail.value;
+	};
+
+	// ==================== 时间控制 ====================
+	const adjustTime = (step : number) => {
+		const newValue : number = timeMinutes.value + step;
+		if (newValue >= 0 && newValue <= 60) {
+			timeMinutes.value = newValue;
+		}
+	};
+	const onTimeChange = (value : UniSliderChangeEvent) => {
+		timeMinutes.value = value.detail.value;
+	};
+
+	// ==================== 预设模式 ====================
+	const applyDeepRecovery = () => {
+		if (isRunning.value) return;
+		playClickSound()
+		if (isM.value) {
+			intensity.value = 80;
+			frequency.value = 10;
+			timeMinutes.value = 16;
+			if (hasDamos.value) {
+				hasDamos.value = false;
+			} else {
+				hasDamos.value = true;
+			}
+		} else {
+			itemListVisible.value = true;
+		}
+	};
+
+	// ==================== 设备控制 ====================
+	const startDevice = () => {
+		if (isRunning.value) return;
+		playClickSound()
+		isRunning.value = true;
+	};
+	const stopDevice = () => {
+		if (!isRunning.value) return;
+		playClickSound()
+		isRunning.value = false;
+	};
+
+	// ==================== 菜单/设置 ====================
+	const openMenu = () => {
+		if (isRunning.value) return;
+		playClickSound()
+		infoModalVisible.value = true;
+	};
+	const openSettings = () => {
+		if (isRunning.value) return;
+		playClickSound()
+		infoProgramVisible.value = true;
+	};
+	const infoModalClose = () => {
+		infoModalVisible.value = false;
+	}
+	const infoProgramClose = () => {
+		infoProgramVisible.value = false;
+	}
+	const itemInfoClose = () => {
+		itemInfoVisible.value = false;
+	}
+	const itemListClose = () => {
+		itemListVisible.value = false;
+	}
+	const programSelect = (title: string) => {
+		selectedTitle.value = title;
+		const item = programsMap[selectedTitle.value] as ProgramItem;
+		// 赋值到当前
+		if (item != null) {
+			hasDamos.value = item.hasDamos;
+			frequency.value = item.flags[0].freq;
+			timeMinutes.value = item.totalTime;
+		}
+		
+		itemInfoVisible.value = true;
+	}
+</script>
+
+<style scoped>
+	.container {
+		background-color: #0D0D0D;
+		height: 100%;
+		padding: 10rpx 10rpx;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.client {
+		flex: 1;
+	}
+
+	/* ==================== 导航栏 ==================== */
+	.navbar {
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		justify-content: space-between;
+		align-items: center;
+		padding: 0 20rpx;
+	}
+
+	.nav-icon {
+		width: 60rpx;
+		height: 60rpx;
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		align-items: center;
+		justify-content: center;
+	}
+
+	.icon-text {
+		color: #fff;
+		font-size: 56rpx;
+	}
+
+	.mode-switch {
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		align-items: center;
+	}
+
+	.mode-item {
+		margin: 0 30rpx;
+	}
+
+	/* 纯class选择器，修复UVue限制 */
+	.mode-text {
+		color: #666;
+		font-size: 56rpx;
+		font-weight: bold;
+	}
+
+	.mode-text-active {
+		color: #4ECDC4;
+	}
+
+	/* ==================== 按钮 ==================== */
+	.btn-recovery {
+		width: 100%;
+		height: 88rpx;
+		border-radius: 44rpx;
+		border: 3rpx solid #fff;
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		align-items: center;
+		justify-content: center;
+		margin: 24rpx 0;
+	}
+
+	.btn-recovery-text {
+		color: #fff;
+		font-size: 32rpx;
+		font-weight: 600;
+	}
+
+	.control-buttons {
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		padding: 10rpx 0;
+	}
+
+	.btn-start {
+		margin-right: 24rpx;
+	}
+
+	.btn-start,
+	.btn-stop {
+		flex: 1;
+		height: 100rpx;
+		border-radius: 50rpx;
+		display: flex;
+		flex-direction: row;
+		/* 横向排列 */
+		align-items: center;
+		justify-content: center;
+	}
+
+	.btn-text {
+		font-size: 44rpx;
+		font-weight: bold;
+		color: #fff;
+	}
+
+	.btn-start {
+		background-color: #1A1A1A;
+		border: 3rpx solid #333;
+	}
+
+	.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+	}
+
+	.btn-stop {
+		background-color: #1A1A1A;
+		border: 3rpx solid #333;
+	}
+	
+	.footer-wrapper {
+		width: 100%;
+		padding: 20rpx;
+	}
+</style>

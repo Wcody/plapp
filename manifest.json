@@ -1,0 +1,99 @@
+{
+	"name": "PL-APP",
+	"appid": "__UNI__361969B",
+	"description": "PL系列控制端",
+	"versionName": "1.0.1",
+	"versionCode": "101",
+	"uni-app-x": {},
+	/* 快应用特有相关 */
+	"quickapp": {},
+	/* 小程序特有相关 */
+	"mp-weixin": {
+		"appid": "",
+		"setting": {
+			"urlCheck": false
+		},
+		"usingComponents": true
+	},
+	"mp-alipay": {
+		"usingComponents": true
+	},
+	"mp-baidu": {
+		"usingComponents": true
+	},
+	"mp-toutiao": {
+		"usingComponents": true
+	},
+	"uniStatistics": {
+		"enable": false
+	},
+	"vueVersion": "3",
+	"app": {
+		"distribute": {
+			"icons": {
+				"android": {
+					"hdpi": "",
+					"xhdpi": "",
+					"xxhdpi": "",
+					"xxxhdpi": ""
+				}
+			}
+		}
+	},
+	"app-android": {
+		"distribute": {
+			"modules": {
+				"uni-barcode-scanning": {}
+			},
+			"icons": {
+				"hdpi": "",
+				"xhdpi": "",
+				"xxhdpi": "",
+				"xxxhdpi": ""
+			},
+			"splashScreens": {
+				"default": {}
+			},
+			"abiFilters": [
+				"armeabi-v7a",
+				"arm64-v8a",
+				"x86",
+				"x86_64"
+			],
+			"permissions": [
+				"<uses-permission android:name=\"android.permission.BLUETOOTH\"/>",
+				"<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>",
+				"<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+				"<uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>",
+				"<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>"
+			]
+		}
+	},
+	"app-ios": {
+		"distribute": {
+			"modules": {
+				"uni-barcode-scanning": {}
+			},
+			"icons": {},
+			"splashScreens": {},
+			"privacyDescription": {
+				"NSCameraUsageDescription": "Need access to your camera for QR code scanning, taking photos/videos for upload, and face recognition.",
+				"NSPhotoLibraryUsageDescription": "",
+				"NSLocationAlwaysAndWhenInUseUsageDescription": "Need access to your location to scan nearby Bluetooth devices and locate connected devices.",
+				"NSBluetoothPeripheralUsageDescription": "Need access to your Bluetooth to connect to nearby BLE devices and exchange data.",
+				"NSBluetoothAlwaysUsageDescription": "Need access to your Bluetooth to connect to nearby BLE devices and exchange data."
+			}
+		}
+	},
+	"web": {
+		"router": {
+			"mode": "hash"
+		},
+		"title": "",
+		"optimization": {
+			"treeShaking": {
+				"enable": true
+			}
+		}
+	}
+}

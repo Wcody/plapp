@@ -1,0 +1,39 @@
+// 定义参数项类型（全链路类型安全）
+export type ParamItem = {
+	title : string;
+	value : number;
+	unit : string;
+	isActive : boolean;
+	min : number;
+	max : number;
+	fixed : number;
+	step : number;
+}
+
+// ======================================
+// ✅ 你要的：类型构造器（工厂函数）
+// 作用：创建符合 ParamItem 类型的对象，替代字面量 {}
+// ======================================
+export function createParamItem(
+	title : string,
+	value : number,
+	unit : string,
+	isActive : boolean,
+	min : number,
+	max : number,
+	fixed : number,
+	step : number
+) : ParamItem {
+	// 内部用标准结构返回，UTS 100% 识别
+	const item : ParamItem = {
+		title: title,
+		value: value,
+		unit: unit,
+		isActive: isActive,
+		min: min,
+		max: max,
+		fixed: fixed,
+		step: step
+	};
+	return item;
+}
