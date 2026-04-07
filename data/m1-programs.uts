@@ -18,7 +18,7 @@ export type ProgramItem = {
 };
 
 // 定义映射类型：key 是标题(string)，value 是程序对象(ProgramItem)
-export type ProgramsMap = Record<string, ProgramItem>;
+export type ProgramsMap = Map<string, ProgramItem>;
 
 // ======================================
 // 完整程序数据（无断言、无类型报错）
@@ -26,8 +26,8 @@ export type ProgramsMap = Record<string, ProgramItem>;
 export const programsList: ProgramItem[] = [
 	{
 		title: 'DEEP RECOVERY', features: ['System recovery', 'Tension easing'],
-		desc: '',
-		best: ['Post-workout fatigue', 'Overworked muscles', 'General body heaviness', 'End-of-day decompresslon', 'Anyone feeling "wired and tired"'],
+		desc: 'Supports the body ’s natural recovery process by easing tension, improving tissue relaxation,and helping the nervous system shift out of a stressed.',
+		best: ['Post-workout fatigue', 'Overworked muscles', 'General body heaviness', 'End-of-day decompresslon', 'Anyone feeling "wired and tired'],
 		totalFreqs: '2-10',
 		totalTime: 26,
 		flags: [{ freq: 2, time: 8 }, { freq: 5, time: 10 }, { freq: 10, time: 8 }],
@@ -103,11 +103,75 @@ export const programsList: ProgramItem[] = [
 // ======================================
 export const getProgramsMap = (): ProgramsMap => {
 	// 1. 创建空映射对象（标准UTS对象，无任何原生兼容问题）
-	const map: ProgramsMap = {};
+	const map: ProgramsMap = new Map<string, ProgramItem>();
 	// 2. 遍历赋值（类型完全安全）
 	programsList.forEach((program: ProgramItem) => {
-		map[program.title] = program;
+		map.set(program.title, program)
 	});
 	// 3. 返回映射表
 	return map;
 };
+
+// 定义启动前需要存储的数据类型，完成后再重新赋值到对应位置
+export type StartBeforeItem = {
+	intensity: number;
+	frequency: number;
+	timeMinutes: number;
+	timeMax: number;
+	timeMin: number;
+	timeStep: number;
+	timeUnit: string;
+	intervalHandle: number;
+}
+
+// 手动定义「可选版本」的类型，替代 Partial<StartBeforeItem>
+export type StartBeforeItemOptional = {
+	intensity?: number;
+	frequency?: number;
+	timeMinutes?: number;
+	timeMax?: number;
+	timeMin?: number;
+	timeStep?: number;
+	timeUnit?: string;
+	intervalHandle?: number;
+}
+
+/**
+ * 根据传入参数初始化数据
+ * 传入的字段 → 覆盖
+ * 没传入的 → 使用默认缺省值
+ */
+export function intiStartBeforeItem(
+	data: StartBeforeItemOptional | null = null
+): StartBeforeItem {
+	// 默认缺省值
+	const defaults: StartBeforeItem = {
+		intensity: 0,
+		frequency: 0,
+		timeMinutes: 10,
+		timeMax: 10,
+		timeMin: 10,
+		timeStep: 10,
+		timeUnit: '',
+		intervalHandle: 0,
+	};
+	
+	if (data == null || (
+		data.intensity == null
+			&& data.frequency == null
+			&& data.timeMinutes == null
+			&& data.timeMax == null
+			&& data.timeMin == null
+			&& data.timeStep == null
+			&& data.timeUnit == null
+			&& data.intervalHandle == null
+	)) {
+		return defaults;
+	} else {
+		// 合并：传入的覆盖默认值
+		return {
+			...defaults,
+			...data,
+		};
+	}
+}

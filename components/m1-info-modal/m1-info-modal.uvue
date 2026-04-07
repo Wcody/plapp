@@ -1,6 +1,6 @@
 <template>
 	<!-- 全屏遮罩层 -->
-	<view class="modal-mask" v-if="visible" @touchend="handleClose">
+	<view class="modal-mask" v-if="visible">
 		<!-- 弹窗容器 ✅ 关键修复：阻止触摸事件冒泡 -->
 		<view class="modal-container" @touchend.stop="() => {}">
 			<!-- 顶部标题栏 水平布局 -->

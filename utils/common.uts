@@ -34,3 +34,20 @@ export const formatFreq = (freq : number) : string => {
 	// 保留1位小数（核心修复：替换错误的 Math 写法）
 	  return freq.toFixed(1);
 };
+
+/**
+ * 格式化秒数为 MM:SS 时间字符串
+ * @returns 格式化后的时间字符串，例如 26:00、26:30、05:15
+ */
+export const formatTimeMin1 = (secs: number): string => {
+	// 1. 取整数分钟
+	const mins = Math.floor(secs/60);
+	// 2. 计算小数部分对应的秒数
+	const seconds = Math.round(secs - mins * 60);
+	
+	// 3. 分钟、秒数 补零到两位，拼接结果
+	const formatMins = mins.toString().padStart(2, '0');
+	const formatSecs = seconds.toString().padStart(2, '0');
+	
+	return `${formatMins}:${formatSecs}`;
+};

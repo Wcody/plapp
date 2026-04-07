@@ -3,30 +3,30 @@
 		<text class="card-title">{{ title }}</text>
 		<view class="slider-row">
 			<!-- 减号按钮 -->
-			<view class="btn-round btn-margin" v-if="!disabled" @touchstart="decrement" @touchend="stopAdjust"
+			<view class="btn-round btn-margin" :class="{disabled: disabled}" @touchstart="decrement" @touchend="stopAdjust"
 				@touchcancel="stopAdjust">
 				<text class="btn-icon">-</text>
 			</view>
-			<!-- 原生slider（UVue标准写法） -->
-			<slider class="custom-slider" :min="low" :max="high" :step="stepVal" :value="localValue"
+			<!-- 原生slider, max改变强制刷新 -->
+			<slider :key="high" class="custom-slider" :min="low" :max="high" :step="stepVal" :value="localValue"
 				@changing="onSliderChange" @change="onSliderChange" active-color="#3A7B8C" background-color="#1A3A4A"
 				block-color="#4ECDC4" :block-size="18" :disabled="disabled" />
 			<!-- 加号按钮 -->
-			<view class="btn-round" v-if="!disabled" @touchstart="increment" @touchend="stopAdjust"
+			<view class="btn-round" :class="{disabled: disabled}" @touchstart="increment" @touchend="stopAdjust"
 				@touchcancel="stopAdjust">
 				<text class="btn-icon">+</text>
 			</view>
 		</view>
 		<view class="value-row">
-			<text class="value-text">{{ displayValue }}</text>
-			<text class="value-unit">{{ unitStr }}</text>
+			<text class="value-text">{{ value }}</text>
+			<text class="value-unit">{{ unit }}</text>
 		</view>
 	</view>
 </template>
 
 <script setup lang="uts">
 	import { ref, computed, watch } from 'vue'
-	import { playClickSound, formatTime, formatFreq } from '@/utils/common.uts';
+	import { playClickSound, formatTime, formatFreq, formatTimeMin1 } from '@/utils/common.uts';
 
 	// ==================== Props 严格UTS类型定义 ====================
 	interface Props {
@@ -57,8 +57,12 @@
 		(e : 'update:modelValue', val : number) : void;
 	}
 	const emit = defineEmits<Emits>()
+	// 触发自动间隔
 	const intervalHandle = ref(0);
-	const TIMEOUT = 100;
+	const INTERVAL = 50;
+	// 按下多少秒后才触发自动
+	const timeoutHandle = ref(0);
+	const TIMEOUT = 400;
 
 	// ==================== 双向绑定本地值 ====================
 	const localValue = ref<number>(props.modelValue)
@@ -75,8 +79,11 @@
 
 	// ─── 显示值（支持外部自定义格式化）─────────────────────────────────────────
 	const displayValue = computed(() => {
-		if (props.freqFormat) return formatFreq(localValue.value)
-		if (props.timeFormat) return formatTime(localValue.value)
+		if (props.unitStr == 'Hz') {
+			return formatFreq(localValue.value)
+		} else if (props.unitStr == 'Min') {
+			return formatTime(localValue.value)
+		}
 		return `${localValue.value}`
 	})
 
@@ -84,6 +91,7 @@
 
 	// ✅ 修复：UVue slider changing 直接返回 value，不是 event.detail！
 	function onSliderChange(value : UniSliderChangeEvent) : void {
+		if (localValue.value == value.detail.value) return;
 		playClickSound()
 		localValue.value = value.detail.value
 		emit('update:modelValue', localValue.value)
@@ -91,6 +99,7 @@
 
 	// 减号
 	function decrement() : void {
+		if (props.disabled) return;
 		//先强制对齐步进值的倍数
 		localValue.value = Math.round(localValue.value / props.stepVal) * props.stepVal;
 		const nextVal : number = Math.max(props.low, localValue.value - props.stepVal)
@@ -98,13 +107,18 @@
 		playClickSound()
 		localValue.value = nextVal
 		emit('update:modelValue', nextVal)
-		if (intervalHandle.value == 0) {
-			intervalHandle.value = setInterval(() => decrement(), TIMEOUT);
+		if (timeoutHandle.value == 0) {
+			timeoutHandle.value = setTimeout(() => {
+				if (intervalHandle.value == 0) {
+					intervalHandle.value = setInterval(() => decrement(), INTERVAL);
+				}
+			}, TIMEOUT);
 		}
 	}
 
 	// 加号
 	function increment() : void {
+		if (props.disabled) return;
 		//先强制对齐步进值的倍数
 		localValue.value = Math.round(localValue.value / props.stepVal) * props.stepVal;
 		const nextVal : number = Math.min(props.high, localValue.value + props.stepVal)
@@ -112,18 +126,54 @@
 		playClickSound()
 		localValue.value = nextVal
 		emit('update:modelValue', nextVal);
-		if (intervalHandle.value == 0) {
-			intervalHandle.value = setInterval(() => increment(), TIMEOUT);
+		if (timeoutHandle.value == 0) {
+			timeoutHandle.value = setTimeout(() => {
+				if (intervalHandle.value == 0) {
+					intervalHandle.value = setInterval(() => increment(), INTERVAL);
+				}
+			}, TIMEOUT);
 		}
 	}
 
 	// 长按取消事件
 	function stopAdjust() : void {
+		if (timeoutHandle.value != 0) {
+			clearTimeout(timeoutHandle.value);
+			timeoutHandle.value = 0;
+		}
+		
 		if (intervalHandle.value != 0) {
 			clearInterval(intervalHandle.value);
 			intervalHandle.value = 0;
 		}
 	}
+	
+	const value = computed(() => {
+		let centerUnit = props.unitStr;
+		let centerText = '';
+		if (centerUnit == 'Hz') {
+			centerText = formatFreq(props.modelValue);
+		} else if (centerUnit == 'Min') {
+			centerText = formatTime(props.modelValue);
+		} else if (centerUnit == 'Min1') {
+			centerText = formatTimeMin1(props.modelValue);
+		} else if (centerUnit == 'KGs') {
+			centerText = formatFreq(props.modelValue);
+		} else {
+			centerText = props.modelValue + '';
+		}
+		return centerText;
+	});
+	
+	const unit = computed(() => {
+		let centerUnit = props.unitStr;
+		if (centerUnit == 'Min') {
+			centerUnit = '';
+		} else if (centerUnit == 'Min1') {
+			centerUnit = '';
+		}
+		return centerUnit;
+	})
 </script>
 
 <style scoped>
@@ -171,6 +221,10 @@
 		flex-direction: row;
 		align-items: center;
 		justify-content: center;
+	}
+	
+	.disabled {
+		opacity: 0;
 	}
 
 	.btn-icon {

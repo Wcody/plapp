@@ -1,35 +1,33 @@
 <template>
 	<view class="channel-panel">
 		<!-- 顶部模式标签 -->
-		<view class="mode-tag">
+		<view class="mode-tag" :class="{active: hasDamos}" @touchend.stop="handleDamos">
 			<text class="mode-text">{{ mode }}</text>
 		</view>
 
 		<!-- 参数卡片容器 -->
 		<view class="params-card">
-			<duo-pro-param v-for="(param, index) in params" :key="index" :title="param.title" :value="param.value"
-				:unit="param.unit" :isActive="param.isActive" :min="param.min" :max="param.max" :step="param.step"
-				:fixed="param.fixed" @click="handleParamClick" @select="handleParamSelect" />
+			<duo-pro-param v-for="(param, index) in params" :key="index" :param="param" @click="handleParamClick" @select="handleParamSelect" />
 		</view>
 
 		<!-- 底部控制区 -->
 		<view class="control-area">
 			<text class="channel-letter">{{ channel }}</text>
 			<view class="control-buttons">
-				<view class="control-btn" :class="{ active: !isRunning }" @touchend.stop="handleStart">
+				<view class="control-btn" :class="{ active: isRunning }" @touchend.stop="handleStart">
 					<text class="btn-text">START</text>
 				</view>
-				<view class="control-btn" :class="{ active: isRunning }" @touchend.stop="handleStop">
+				<view class="control-btn" :class="{ active: !isRunning }" @touchend.stop="handleStop">
 					<text class="btn-text">STOP</text>
 				</view>
 			</view>
 		</view>
+		<info-msg :visible="showMsg" :msg="msgText" @close="handleClose"></info-msg>
 	</view>
 </template>
 
 <script setup lang="uts">
 	import { playClickSound } from '@/utils/common.uts';
-	import DuoProParam from '@/components/duo-pro-param/duo-pro-param.uvue';
 	import { ParamItem } from '@/data/duo-config.uts'
 
 	// Props声明
@@ -37,24 +35,29 @@
 		channel: { type: String, default: 'A' },
 		mode: { type: String, default: 'DAMPED OSCILLATION' },
 		params: { type: Array<ParamItem>, default: () => [] },
-		isRunning: { type: Boolean, default: false }
+		isRunning: { type: Boolean, default: false },
+		hasDamos: { type: Boolean, default: false },
+		showMsg: { type: Boolean, default: false },
+		msgText: { type: String, default: 'DONE' }
 	})
 
 	// 事件声明
-	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop'])
-
+	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop', 'damos', 'msg-close'])
+	
 	// 参数点击事件
 	const handleParamClick = (param : ParamItem) => {
+		if (props.isRunning && param.title != 'Intensity') return;
 		playClickSound();
 		emit('param-click', param);
 	};
-
+	
 	// 参数选中事件
 	const handleParamSelect = (param : ParamItem) => {
+		if (props.isRunning && param.title != 'Intensity') return;
 		playClickSound();
 		emit('param-select', param);
 	};
-
+	
 	// 启动按钮
 	const handleStart = () => {
 		if (props.isRunning) return;
@@ -68,10 +71,24 @@
 		playClickSound();
 		emit('stop');
 	};
+	
+	// 点击阻尼震荡
+	const handleDamos = () => {
+		if (props.isRunning) return;
+		playClickSound();
+		emit('damos', !props.hasDamos);
+	};
+	
+	// 点击阻尼震荡
+	const handleClose = () => {
+		playClickSound();
+		emit('msg-close', props.channel);
+	};
 </script>
 
 <style scoped>
 	.channel-panel {
+		position: relative;
 		width: 48%;
 		display: flex;
 		flex-direction: column;
@@ -83,11 +100,15 @@
 		width: 100%;
 		height: 80rpx;
 		border-radius: 16rpx;
-		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		border: 2rpx solid #fff;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		margin-bottom: 30rpx;
+	}
+	
+	.mode-tag.active {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
 	}
 
 	.mode-text {

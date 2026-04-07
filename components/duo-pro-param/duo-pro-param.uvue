@@ -1,7 +1,7 @@
 <template>
 	<view class="param-item" @touchend.stop="handleClick">
-		<text class="param-title">{{ title }}</text>
-		<view class="param-value-box" :class="{ active: isActive }">
+		<text class="param-title">{{ props.param.title }}</text>
+		<view class="param-value-box" :class="{ active: props.param.isActive }">
 			<text class="param-value">{{ value }}</text>
 			<text class="param-unit">{{ unit }}</text>
 		</view>
@@ -9,35 +9,54 @@
 </template>
 
 <script setup lang="uts">
-	import { playClickSound } from '../../utils/common'
-	import { ParamItem, createParamItem } from '@/data/duo-config.uts'
-	// Props声明（类型安全）
-	const props = defineProps({
-		title: { type: String, default: '' },
-		value: { type: Number, default: 0 },
-		unit: { type: String, default: '' },
-		isActive: { type: Boolean, default: false },
-		min: { type: Number, default: 1 },
-		max: { type: Number, default: 100 },
-		fixed: { type: Number, default: 0 },
-		step: { type: Number, default: 1 },
-	})
+	import { playClickSound, formatFreq, formatTime, formatTimeMin1 } from '../../utils/common'
+	import { ParamItem, ParamProps, initParamItem } from '@/data/duo-config.uts'
+	
+	// Props声明，不能直接写字面量，要在uts中定义类型
+	const props = withDefaults(defineProps<ParamProps>(), {
+	  param: () => initParamItem(),
+	});
 
 	// 事件声明
 	const emit = defineEmits(['click', 'select'])
 
-	// 点击事件（带音效）
 	const handleClick = () => {
-		const item = createParamItem(props.title, props.value, props.unit, props.isActive, props.min, props.max, props.fixed, props.step);
-		if (props.isActive) {
-			playClickSound();
+		if (props.param.title == 'Energy') return;
+		if (props.param.isActive) {
 			// 点击进入配置
-			emit('click', item)
-		} else if (!props.isActive) {
+			emit('click', props.param)
+		} else {
 			// 仅仅高亮选中
-			emit('select', item);
+			emit('select', props.param);
 		}
 	}
+	
+	const value = computed(() => {
+		let centerUnit = props.param.unit;
+		let centerText = '';
+		if (centerUnit == 'Hz') {
+			centerText = formatFreq(props.param.value);
+		} else if (centerUnit == 'Min') {
+			centerText = formatTime(props.param.value);
+		} else if (centerUnit == 'Min1') {
+			centerText = formatTimeMin1(props.param.value);
+		} else if (centerUnit == 'KGs') {
+			centerText = formatFreq(props.param.value);
+		} else {
+			centerText = props.param.value + '';
+		}
+		return centerText;
+	});
+	
+	const unit = computed(() => {
+		let centerUnit = props.param.unit;
+		if (centerUnit == 'Min') {
+			centerUnit = '';
+		} else if (centerUnit == 'Min1') {
+			centerUnit = '';
+		}
+		return centerUnit;
+	})
 </script>
 
 <style scoped>

@@ -22,7 +22,7 @@
 
 				<!-- 设置图标 → 替换为文字 -->
 				<view class="nav-item nav-icon" @touchend="openSettings">
-					<text class="icon-text">⚙</text>
+					<text class="icon-text1">⚙</text>
 				</view>
 			</view>
 		</view>
@@ -34,13 +34,13 @@
 
 			<!-- 2. Frequency（频率）控制模块 -->
 			<m1-slider-control title="Frequency" :model-value="frequency"
-				@update:model-value="frequency = $event as number;" :low="0.5" :high="20" :step-val="0.5" :disabled="isP || isRunning"
-				unit-str="Hz" freq-format />
+				@update:model-value="frequency = $event as number;" :low="0.5" :high="frequencyMax" :step-val="0.5" :disabled="isP || isRunning"
+				unit-str="Hz" />
 
 			<!-- 3. Time（时间）控制模块 -->
 			<m1-slider-control title="Time" :model-value="timeMinutes"
-				@update:model-value="timeMinutes = $event as number;" :low="0" :high="60" :step-val="1" :disabled="isP || isRunning"
-				unit-str="" time-format />
+				@update:model-value="timeMinutes = $event as number;" :low="timeMin" :high="timeMax" :step-val="timeStep" :disabled="isP || isRunning"
+				:unit-str="timeUnit" />
 		</scroll-view>
 		<!-- 底部水印+返回按钮 -->
 		<view class="footer-wrapper">
@@ -60,34 +60,39 @@
 			</view>
 		</view>
 	</view>
-	<m1-info-modal :visible="infoModalVisible" @close="infoModalClose"></m1-info-modal>
-	<m1-info-program :visible="infoProgramVisible" @close="infoProgramClose"></m1-info-program>
-	<m1-item-info :visible="itemInfoVisible" :title="selectedTitle" @close="itemInfoClose" @start="startDevice"></m1-item-info>
-	<m1-item-list :visible="itemListVisible" @close="itemListClose" @program-select="programSelect"></m1-item-list>
+	<m1-info-modal :visible="infoModalVisible" @close="infoModalClose" />
+	<m1-info-program :visible="infoProgramVisible" @close="infoProgramClose" />
+	<m1-item-info :visible="itemInfoVisible" :title="selectedTitle" @close="itemInfoClose" @start="startDevice" />
+	<m1-item-list :visible="itemListVisible" @close="itemListClose" @program-select="programSelect" />
+	<info-msg :msg="infoMsgText" :visible="infoMsgVisible" @click="handleInfoMsgClose" mask-close-disabled />
 </template>
 
 <script setup>
 	import { ref, computed, onMounted } from 'vue';
-	import M1SliderControl from '@/components/m1-slider-control/m1-slider-control.uvue'
-	import M1InfoModal from '@/components/m1-info-modal/m1-info-modal.uvue'
-	import M1InfoProgram from '@/components/m1-info-program/m1-info-program.uvue'
-	import M1ItemInfo from '@/components/m1-item-info/m1-item-info.uvue'
-	import M1ItemList from '@/components/m1-item-list/m1-item-list.uvue'
 	import { playClickSound } from '@/utils/common.uts';
-	import { getProgramsMap, ProgramItem, programsList } from '@/data/m1-programs.uts';
+	import { getProgramsMap, ProgramItem, programsList, StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
 
 	// ==================== 状态数据 ====================
-	const activeMode = ref<string>('M');
+	const activeMode = ref<string>('P');
 	const intensity = ref<number>(100);
-	const frequency = ref<number>(10);
-	const timeMinutes = ref<number>(15.9);
+	const frequency = ref<number>(2);
+	const frequencyMax = ref<number>(10);
+	const timeMinutes = ref<number>(26);
 	const isRunning = ref<boolean>(false);
 	const infoModalVisible = ref<boolean>(false);
-	const infoProgramVisible = ref<boolean>(false);
+	const infoProgramVisible = ref<boolean>(true);
 	const itemListVisible = ref<boolean>(false);
 	const itemInfoVisible = ref<boolean>(false);
+	const infoMsgVisible = ref<boolean>(false);
+	const infoMsgText = ref('DONE');
+	const startBeforeItem = ref<StartBeforeItem>(intiStartBeforeItem())
+	//时间相关的几个参数
+	const timeMin = ref(1);
+	const timeMax = ref(60);
+	const timeStep = ref(5);
+	const timeUnit = ref('Min');
 	// 是否启用阻尼震荡
-	const hasDamos = ref(false);
+	const hasDamos = ref(true);
 	// M模式下，
 	const selectedTitle = ref('DEEP RECOVERY');
 	// 获取所有模式的Map
@@ -102,10 +107,15 @@
 		}
 	})
 
+	let firstShowM: boolean = true;
 	// ==================== 模式切换 ====================
 	const switchMode = (mode : string) => {
 		if (isRunning.value) return;
 		if (activeMode.value == mode) return;
+		if (firstShowM && mode == 'M') {
+			infoModalVisible.value = true;
+			firstShowM = false;
+		}
 		playClickSound()
 		activeMode.value = mode;
 	};
@@ -164,13 +174,17 @@
 		if (isRunning.value) return;
 		playClickSound()
 		if (isM.value) {
-			intensity.value = 80;
-			frequency.value = 10;
-			timeMinutes.value = 16;
 			if (hasDamos.value) {
 				hasDamos.value = false;
+				// 强度减成当前值一半
+				intensity.value = Math.max(1, Math.floor(intensity.value / 2));
+				// 频率最大值恢复为20
+				frequencyMax.value = 20;
 			} else {
 				hasDamos.value = true;
+				// 频率最大值为10
+				frequencyMax.value = 10;
+				frequency.value = Math.min(frequency.value, frequencyMax.value)
 			}
 		} else {
 			itemListVisible.value = true;
@@ -180,25 +194,79 @@
 	// ==================== 设备控制 ====================
 	const startDevice = () => {
 		if (isRunning.value) return;
+		// 记录启动前的数据
+		startBeforeItem.value.intensity = intensity.value;
+		startBeforeItem.value.frequency = frequency.value;
+		startBeforeItem.value.timeMinutes = timeMinutes.value;
+		startBeforeItem.value.timeMin = timeMin.value;
+		startBeforeItem.value.timeMax = timeMax.value;
+		startBeforeItem.value.timeStep = timeStep.value;
+		startBeforeItem.value.timeUnit = timeUnit.value;
+		
+		//播放声音
 		playClickSound()
 		isRunning.value = true;
+		
+		// 根据分钟数计算剩余秒数
+		let remainSec = timeMinutes.value * 60;
+		//按照秒数进度重新指定最大值，完成后再复位
+		timeMax.value = remainSec;
+		timeMinutes.value = timeMax.value;
+		timeStep.value = 1;
+		timeMin.value = 0;
+		timeUnit.value = 'Min1';
+		
+		//启动计时器计时, 1秒一次
+		startBeforeItem.value.intervalHandle = setInterval(() => {
+			remainSec--;
+			playClickSound();
+			if (remainSec > 0) {
+				// 继续算时间
+				timeMinutes.value = remainSec;
+			} else {
+				// 已经完成
+				infoMsgVisible.value = true;
+				isRunning.value = false;
+				intensity.value = startBeforeItem.value.intensity;
+				frequency.value = startBeforeItem.value.frequency;
+				timeMinutes.value = startBeforeItem.value.timeMinutes;
+				timeMin.value = startBeforeItem.value.timeMin;
+				timeMax.value = startBeforeItem.value.timeMax;
+				timeStep.value = startBeforeItem.value.timeStep;
+				timeUnit.value = startBeforeItem.value.timeUnit;
+				
+				//销毁定时
+				clearInterval(startBeforeItem.value.intervalHandle);
+			}
+		}, 1000)
 	};
 	const stopDevice = () => {
 		if (!isRunning.value) return;
 		playClickSound()
 		isRunning.value = false;
+		intensity.value = startBeforeItem.value.intensity;
+		frequency.value = startBeforeItem.value.frequency;
+		timeMinutes.value = startBeforeItem.value.timeMinutes;
+		timeMin.value = startBeforeItem.value.timeMin;
+		timeMax.value = startBeforeItem.value.timeMax;
+		timeStep.value = startBeforeItem.value.timeStep;
+		timeUnit.value = startBeforeItem.value.timeUnit;
+		
+		//销毁定时
+		clearInterval(startBeforeItem.value.intervalHandle);
 	};
 
 	// ==================== 菜单/设置 ====================
 	const openMenu = () => {
 		if (isRunning.value) return;
 		playClickSound()
-		infoModalVisible.value = true;
+		infoModalVisible.value = activeMode.value == 'M';
+		infoProgramVisible.value = activeMode.value == 'P';
 	};
 	const openSettings = () => {
 		if (isRunning.value) return;
-		playClickSound()
-		infoProgramVisible.value = true;
+		//playClickSound()
+		//infoProgramVisible.value = true;
 	};
 	const infoModalClose = () => {
 		infoModalVisible.value = false;
@@ -220,9 +288,18 @@
 			hasDamos.value = item.hasDamos;
 			frequency.value = item.flags[0].freq;
 			timeMinutes.value = item.totalTime;
+			
+			if (hasDamos.value) {
+				frequencyMax.value = 10;
+			} else {
+				frequencyMax.value = 20;
+			}
 		}
 		
 		itemInfoVisible.value = true;
+	}
+	const handleInfoMsgClose = () => {
+		infoMsgVisible.value = false;
 	}
 </script>
 
@@ -264,6 +341,11 @@
 		color: #fff;
 		font-size: 56rpx;
 	}
+	
+	.icon-text1 {
+		color: transparent;
+		font-size: 56rpx;
+	}
 
 	.mode-switch {
 		display: flex;
@@ -284,7 +366,7 @@
 	}
 
 	.mode-text-active {
-		color: #4ECDC4;
+		color: #fff;
 	}
 
 	/* ==================== 按钮 ==================== */

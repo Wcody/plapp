@@ -10,30 +10,65 @@ export type ParamItem = {
 	step : number;
 }
 
-// ======================================
-// ✅ 你要的：类型构造器（工厂函数）
-// 作用：创建符合 ParamItem 类型的对象，替代字面量 {}
-// ======================================
-export function createParamItem(
-	title : string,
-	value : number,
-	unit : string,
-	isActive : boolean,
-	min : number,
-	max : number,
-	fixed : number,
-	step : number
-) : ParamItem {
-	// 内部用标准结构返回，UTS 100% 识别
-	const item : ParamItem = {
-		title: title,
-		value: value,
-		unit: unit,
-		isActive: isActive,
-		min: min,
-		max: max,
-		fixed: fixed,
-		step: step
+// 定义参数组件属性类型，不能定义字面量
+export type ParamProps = {
+	param: ParamItem
+}
+
+// 定义参数组件属性类型，不能定义字面量
+export type ParamConfigProps = {
+	visible: Boolean,
+	param: ParamItem
+}
+
+// 手动定义「可选版本」的类型，替代 Partial<ParamItem>
+export type ParamItemOptional = {
+	title? : string;
+	value? : number;
+	unit? : string;
+	isActive? : boolean;
+	min? : number;
+	max? : number;
+	fixed? : number;
+	step? : number;
+}
+
+/**
+ * 根据传入参数初始化数据
+ * 传入的字段 → 覆盖
+ * 没传入的 → 使用默认缺省值
+ */
+export function initParamItem(
+	data: ParamItemOptional | null = null
+): ParamItem {
+	// 默认缺省值
+	const defaults: ParamItem = {
+		title : '',
+		value : 0,
+		unit : '',
+		isActive : false,
+		min : 1,
+		max : 100,
+		fixed : 0,
+		step : 1,
 	};
-	return item;
+	
+	if (data == null || (
+		data.title == null
+			&& data.value == null
+			&& data.unit == null
+			&& data.isActive == null
+			&& data.min == null
+			&& data.max == null
+			&& data.fixed == null
+			&& data.step == null
+	)) {
+		return defaults;
+	} else {
+		// 合并：传入的覆盖默认值
+		return {
+			...defaults,
+			...data,
+		};
+	}
 }

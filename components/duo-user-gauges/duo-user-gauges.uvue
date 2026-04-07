@@ -8,10 +8,7 @@
 		<!-- 静态写死3个仪表盘，彻底删除v-for，无遍历报错 -->
 		<view class="gauges-card">
 			<scroll-view class="gauges">
-				<duo-user-gauge class="gauge" v-for="(param, index) in params" :key="index" :title="param.title" :value="param.value"
-					:unit="param.unit" :isActive="param.isActive" :min="param.min" :max="param.max" :step="param.step"
-					:fixed="param.fixed" @click="handleParamClick" @select="handleParamSelect" />
-	
+				<duo-user-gauge class="gauge" v-for="(param, index) in params" :key="index" :param="param" @click="handleParamClick" @select="handleParamSelect" />
 			</scroll-view>
 		</view>
 
@@ -26,12 +23,12 @@
 				</view>
 			</view>
 		</view>
+		<info-msg :visible="showMsg" :msg="msgText" @close="handleClose"></info-msg>
 	</view>
 </template>
 
 <script setup lang="uts">
 	import { playClickSound } from '@/utils/common.uts';
-	import duoUserGauge from '@/components/duo-user-gauge/duo-user-gauge.uvue';
 	import { ParamItem } from '@/data/duo-config.uts'
 
 	// 无任何数组/遍历相关代码
@@ -40,21 +37,23 @@
 		mode: { type: String, default: 'DAMPED OSCILLATION' },
 		params: { type: Array<ParamItem>, default: () => [] },
 		isRunning: { type: Boolean, default: false },
-		hasDamos: { type: Boolean, default: false }
+		hasDamos: { type: Boolean, default: false },
+		showMsg: { type: Boolean, default: false },
+		msgText: { type: String, default: 'DONE' }
 	})
 	// 事件声明
-	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop', 'damos'])
+	const emit = defineEmits(['param-click', 'param-select', 'start', 'stop', 'damos', 'msg-close'])
 	
 	// 参数点击事件
 	const handleParamClick = (param : ParamItem) => {
-		if (props.isRunning) return;
+		if (props.isRunning && param.title != 'Intensity') return;
 		playClickSound();
 		emit('param-click', param);
 	};
 	
 	// 参数选中事件
 	const handleParamSelect = (param : ParamItem) => {
-		if (props.isRunning) return;
+		if (props.isRunning && param.title != 'Intensity') return;
 		playClickSound();
 		emit('param-select', param);
 	};
@@ -79,10 +78,17 @@
 		playClickSound();
 		emit('damos', !props.hasDamos);
 	};
+	
+	// 点击阻尼震荡
+	const handleClose = () => {
+		playClickSound();
+		emit('msg-close', props.channel);
+	};
 </script>
 
 <style scoped>
 	.channel-panel {
+		position: relative;
 		width: 48%;
 		display: flex;
 		flex-direction: column;

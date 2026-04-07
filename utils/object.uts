@@ -1,0 +1,38 @@
+/**
+ * 通用对象工具类（UTS 安卓/iOS 100% 兼容）
+ */
+export class ObjectUtils {
+	//   static isEmpty(obj: any | null): boolean {
+	//     // 1. 先判空：null 直接返回 true（UTS 中 null 等价于 TS 的 null/undefined）
+	//     if (obj == null) return true;
+	
+	//     // 2. UTS 原生遍历对象：用 for...in 安全遍历（仅对普通对象生效）
+	//     // 注意：UTS 中 for...in 仅支持普通对象，不支持 Map/数组
+	//     for (const key in obj) {
+	//       const value = obj[key];
+	//       // UTS 中仅用 != null 判空，彻底移除 undefined
+	//       if (value != null) {
+	//         return false;
+	//       }
+	//     }
+	//     return true;
+	//   }
+
+	// /**
+	//  * 是否有任意值
+	//  */
+	// static hasAnyValue(obj: any): boolean {
+	// 	return !this.isEmpty(obj);
+	// }
+
+	// /**
+	//  * 合并默认值
+	//  */
+	// static mergeDefaults<T>(defaults: T, data: any | null = null): T {
+	// 	if (data === null) return defaults;
+	// 	return {
+	// 		...defaults,
+	// 		...data
+	// 	};
+	// }
+}

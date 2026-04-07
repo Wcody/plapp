@@ -1,157 +1,242 @@
 <template>
 	<view class="gauge-page">
 		<!-- A通道 -->
-		<duo-pro-gauges channel="A" mode="DAMPED OSCILLATION" :params="channelAParams" :isRunning="channelAIsRunning"
-			:hasDamos="channelAHasDamos" @param-click="handleChannelAParamClick"
+		<duo-user-gauges channel="A" mode="DAMPED OSCILLATION" :params="channelAParams" :isRunning="channelAIsRunning"
+			:hasDamos="channelAHasDamos" :showMsg="infoMsgVisibleA" @param-click="handleChannelAParamClick"
 			@param-select="handleChannelAParamSelect" @start="handleChannelAStart" @stop="handleChannelAStop"
-			@damos="handleChannelADamos" />
+			@damos="handleChannelADamos" @msg-close="handleMsgClose" />
 
 		<!-- B通道 -->
-		<duo-pro-gauges channel="B" mode="DAMPED OSCILLATION" :params="channelBParams" :isRunning="channelBIsRunning"
-			:hasDamos="channelBHasDamos" @param-click="handleChannelBParamClick"
+		<duo-user-gauges channel="B" mode="DAMPED OSCILLATION" :params="channelBParams" :isRunning="channelBIsRunning"
+			:hasDamos="channelBHasDamos" :showMsg="infoMsgVisibleB" @param-click="handleChannelBParamClick"
 			@param-select="handleChannelBParamSelect" @start="handleChannelBStart" @stop="handleChannelBStop"
-			@damos="handleChannelBDamos" />
+			@damos="handleChannelBDamos"@msg-close="handleMsgClose" />
 	</view>
-	<duo-param-config :visible="paramConfigVisible" @close="handleParamConfigClose" :min="configMin" :max="configMax" ,
-		:title="configTitle" :value="configValue" :step="configStep" :unit="configUnit" <!--
-		@change="handleConfigChange"></duo-param-config> -->
+	<duo-param-config :visible="paramConfigVisible" :param="configItem" @close="handleParamConfigClose"
+		@change="handleConfigChange"></duo-param-config>
 </template>
 
 <script setup lang="uts">
 	import { ref, watch } from 'vue';
-	import DuoProGauges from '@/components/duo-user-gauges/duo-user-gauges.uvue';
-	import DuoParamConfig from '@/components/duo-param-config/duo-param-config.uvue';
-	import { ParamItem, createParamItem } from '@/data/duo-config.uts';
+	import { playClickSound } from '@/utils/common.uts';
+	import { ParamItem, initParamItem } from '@/data/duo-config.uts';
+	import { StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
 
 	// ========== 设置值相关 ===================
-	const configTitle = ref('Ihhh');
-	const configValue = ref(0);
-	const configMin = ref(1);
-	const configMax = ref(100);
-	const configStep = ref(1);
-	const configUnit = ref('Hz');
+	//选中的Item
+	const configItem = ref<ParamItem>(initParamItem());
 	const configMode = ref('A');
 
 	// ============== 显示设置窗口 ==============
 	const paramConfigVisible = ref(false);
 	// ============== A通道状态 ==============
-	const channelAIsRunning = ref(true);
+	const channelAIsRunning = ref(false);
 	// ============== A阻尼震荡 ==============
 	const channelAHasDamos = ref(false);
+	// A启动前的参数值
+	const startBeforeItemA = ref<StartBeforeItem>(intiStartBeforeItem());
+	// A消息框显示
+	const infoMsgVisibleA = ref(false);
 	// 🔥 修复：UTS 标准写法，自动推导类型，无构造函数报错
 	const channelAParams = ref([
 		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
-		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.1, max: 20, fixed: 1, step: 0.1 },
-		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 1 }
+		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.5, max: 20, fixed: 1, step: 0.5 },
+		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 5 }
 	] as ParamItem[]);
 
 	// ============== B通道状态 ==============
 	const channelBIsRunning = ref(false);
 	// ============== A阻尼震荡 ==============
 	const channelBHasDamos = ref(false);
+	// B启动前的参数值
+	const startBeforeItemB = ref<StartBeforeItem>(intiStartBeforeItem());
+	// A消息框显示
+	const infoMsgVisibleB = ref(false);
 	const channelBParams = ref([
 		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
-		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.1, max: 20, fixed: 1, step: 0.1 },
-		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 1 }
+		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.5, max: 20, fixed: 1, step: 0.5 },
+		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 5 }
 	] as ParamItem[]);
 
 	// ============== A通道事件处理 ==============
 	const handleChannelAParamClick = (param : ParamItem) => {
-		configTitle.value = param.title;
-		configValue.value = param.value;
-		configMin.value = param.min;
-		configMax.value = param.max;
-		configStep.value = param.step;
-		configUnit.value = param.unit;
+		configItem.value = param;
 		configMode.value = 'A';
 		paramConfigVisible.value = true;
 	};
 
 	// ============== A通道事件处理 ==============
 	const handleChannelAParamSelect = (param : ParamItem) => {
-		console.log('handleChannelAParamSelect', param);
-		// 弹出设置窗口，并设置值
-		channelAParams.value = channelAParams.value.map((p : ParamItem) => ({
-			...p,
-			isActive: p.title === param.title
-		} as ParamItem));
+		// 遍历原数组，原地修改，不改变引用地址
+		for (let i = 0; i < channelAParams.value.length; i++) {
+			const p = channelAParams.value[i];
+			// 只修改 isActive 属性
+			p.isActive = (p.title == param.title);
+		}
 	};
+	
+	// 完成后或停止后，还原数据
+	const restoreDataAfterFinish = (itemE: Ref<StartBeforeItem>, itemS: Ref<Array<ParamItem>>) => {
+		const intensity = itemS.value[0];
+		const frequency = itemS.value[1];
+		const time = itemS.value[2];
+		
+		intensity.value = itemE.value.intensity;
+		frequency.value = itemE.value.frequency;
+		time.value = itemE.value.timeMinutes;
+		time.max = itemE.value.timeMax;
+		time.step = itemE.value.timeStep;
+		time.min = itemE.value.timeMin;
+		time.unit = itemE.value.timeUnit;
+				
+		//销毁定时
+		clearInterval(itemE.value.intervalHandle);
+	}
+	
+	// 记录启动前数据
+	const backupDataBeforeStart = (itemE: Ref<StartBeforeItem>, itemS: Ref<Array<ParamItem>>, channel: string) =>  {
+		const intensity = itemS.value[0];
+		const frequency = itemS.value[1];
+		const time = itemS.value[2];
+		
+		itemE.value.intensity = intensity.value;
+		itemE.value.frequency = frequency.value;
+		itemE.value.timeMinutes = time.value;
+		itemE.value.timeMax = time.max;
+		itemE.value.timeMin = time.min;
+		itemE.value.timeStep = time.step;
+		itemE.value.timeUnit = time.unit;
+		
+		// 根据分钟数计算剩余秒数
+		let remainSec = time.value * 60;
+		//按照秒数进度重新指定最大值，完成后再复位
+		time.max = remainSec;
+		time.value = time.max;
+		time.step = 1;
+		time.min = 0;
+		time.unit = 'Min1';
+		
+		//启动计时器计时, 1秒一次
+		itemE.value.intervalHandle = setInterval(() => {
+			remainSec--;
+			playClickSound();
+			if (remainSec > 0) {
+				// 继续算时间
+				time.value = remainSec;
+			} else {
+				// 已经完成
+				if (channel == 'A') {
+					infoMsgVisibleA.value = true;
+					channelAIsRunning.value = false;
+				} else if (channel == 'B') {
+					infoMsgVisibleB.value = true;
+					channelBIsRunning.value = false;
+				}
+				restoreDataAfterFinish(itemE, itemS);
+			}
+		}, 1000)
+	}
 
 	const handleChannelAStart = () => {
 		channelAIsRunning.value = true;
+		backupDataBeforeStart(startBeforeItemA, channelAParams, 'A');
 	};
 
 	const handleChannelAStop = () => {
 		channelAIsRunning.value = false;
+		restoreDataAfterFinish(startBeforeItemA, channelAParams);
 	};
 
 	// ============== B通道事件处理 ==============
 	const handleChannelBParamClick = (param : ParamItem) => {
-		configTitle.value = param.title;
-		configValue.value = param.value;
-		configMin.value = param.min;
-		configMax.value = param.max;
-		configStep.value = param.step;
-		configUnit.value = param.unit;
+		configItem.value = param;
 		configMode.value = 'B';
 		paramConfigVisible.value = true;
 	};
 
 	// ============== B通道事件处理 ==============
 	const handleChannelBParamSelect = (param : ParamItem) => {
-		channelBParams.value = channelBParams.value.map((p : ParamItem) => ({
-			...p,
-			isActive: p.title === param.title
-		} as ParamItem));
+		// 遍历原数组，原地修改，不改变引用地址
+		for (let i = 0; i < channelBParams.value.length; i++) {
+			const p = channelBParams.value[i];
+			// 只修改 isActive 属性
+			p.isActive = (p.title == param.title);
+		}
 	};
 
 	const handleChannelBStart = () => {
 		channelBIsRunning.value = true;
-		console.log('B通道启动');
+		backupDataBeforeStart(startBeforeItemB, channelBParams, 'B');
 	};
 
 	const handleChannelBStop = () => {
 		channelBIsRunning.value = false;
-		console.log('B通道停止');
+		restoreDataAfterFinish(startBeforeItemB, channelAParams);
 	};
 
 	const handleParamConfigClose = () => {
 		paramConfigVisible.value = false;
 	};
 
-	const handleConfigChange = (title : string, val : number) => {
-		if (configMode.value == 'A') {
-			channelAParams.value = channelAParams.value.map((p : ParamItem) => {
-				if (p.title == title) {
-					return {
-						...p,
-						value: val
-					} as ParamItem
-				} else {
-					return { ...p } as ParamItem;
-				}
-			});
-		} else {
-			channelBParams.value = channelBParams.value.map((p : ParamItem) => {
-				if (p.title == title) {
-					return {
-						...p,
-						value: val
-					} as ParamItem
-				} else {
-					return { ...p } as ParamItem;
-				}
-			});
-		}
+	const handleConfigChange = (param : ParamItem, val : number) => {
+		param.value = val;
 	}
 
 	const handleChannelADamos = (val : boolean) => {
 		channelAHasDamos.value = val;
+		// 遍历原数组，找到强度和频率
+		for (let i = 0; i < channelAParams.value.length; i++) {
+			const p = channelAParams.value[i];
+			if (p.title == 'Intensity') {
+				if (!val) {
+					// 强度减成当前值一半
+					p.value = Math.max(1, Math.floor(p.value / 2));
+				}
+			} else if (p.title == 'Frequency') {
+				if (!val) {
+					// 频率最大值恢复为20
+					p.max = 20;
+				} else {
+					// 频率最大值为10
+					p.max = 10;
+					// 值也需要重新处理
+					p.value = Math.min(p.value, p.max)
+				}
+			}
+		}
 	};
 
 	const handleChannelBDamos = (val : boolean) => {
 		channelBHasDamos.value = val;
+		// 遍历原数组，找到强度和频率
+		for (let i = 0; i < channelBParams.value.length; i++) {
+			const p = channelBParams.value[i];
+			if (p.title == 'Intensity') {
+				if (!val) {
+					// 强度减成当前值一半
+					p.value = Math.max(1, Math.floor(p.value / 2));
+				}
+			} else if (p.title == 'Frequency') {
+				if (!val) {
+					// 频率最大值恢复为20
+					p.max = 20;
+				} else {
+					// 频率最大值为10
+					p.max = 10;
+					// 值也需要重新处理
+					p.value = Math.min(p.value, p.max)
+				}
+			}
+		}
 	};
+	
+	const handleMsgClose = (mode : string) => {
+		if (mode == 'A') {
+			infoMsgVisibleA.value = false;
+		} else if (mode == 'B') {
+			infoMsgVisibleB.value = false;
+		}
+	}
 </script>
 
 <style scoped>

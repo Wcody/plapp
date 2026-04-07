@@ -10,26 +10,14 @@
 				<text class="section-title">BEST FOR</text>
 
 				<view class="list-wrapper">
-					<view class="list-item">
-						<text class="list-dot">·</text>
-						<text class="list-text">Post-workout fatigue</text>
-					</view>
-					<view class="list-item">
-						<text class="list-dot">·</text>
-						<text class="list-text">Overworked muscles</text>
-					</view>
-					<view class="list-item">
-						<text class="list-dot">·</text>
-						<text class="list-text">General body heaviness</text>
-					</view>
-					<view class="list-item">
-						<text class="list-dot">·</text>
-						<text class="list-text">End-of-day decompression</text>
-					</view>
-					<view class="list-item">
-						<text class="list-dot">·</text>
-						<text class="list-text">Anyone feeling "wired and tired"</text>
-					</view>
+					<view 
+					    v-for="(item, index) in currentProgram.best" 
+					    :key="index" 
+					    class="list-item"
+					  >
+					    <text class="list-dot">·</text>
+					    <text class="list-text">{{ item }}</text>
+					  </view>
 				</view>
 
 				<view class="params-wrapper">
@@ -44,7 +32,7 @@
 					<view class="param-item">
 						<text class="param-label">Time</text>
 						<view class="param-value-row">
-							<text class="param-value">26:00</text>
+							<text class="param-value">{{formatTime(currentProgram.totalTime)}}</text>
 							<text class="param-unit">Min</text>
 						</view>
 					</view>
@@ -69,7 +57,7 @@
 
 <script setup lang="uts">
 	import { ref } from 'vue';
-	import { playClickSound } from '@/utils/common.uts';
+	import { playClickSound, formatTime } from '@/utils/common.uts';
 	import { ProgramItem, getProgramsMap, programsList } from '@/data/m1-programs.uts';
 
 	// Props声明

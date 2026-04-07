@@ -7,8 +7,6 @@
 <script setup lang="uts">
 	import { ref, onMounted, onUnmounted } from 'vue'
 	import { playClickSound } from '@/utils/common.uts';
-
-	import DuoPro from '@/components/duo-pro/duo-pro.uvue';
 	
 	onReady(() => {
 		// 全局广播事件，让子组件的画布可以正常工作
