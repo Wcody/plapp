@@ -1,0 +1,381 @@
+/**
+ * BleProtocol 蓝牙协议层
+ * 专为 xl-ble 插件设计：输入/输出均为 number[] 格式，无需类型转换
+ * 核心功能：协议组包、数据解析、轮询管理
+ */
+
+/**
+ * 下发参数指令 - 数据原型
+ * 用于向蓝牙设备下发业务参数
+ */
+export type SendParam = {
+  /**
+   * 诊室编号
+   * 类型：number（整型）
+   * 取值范围：1-99（示例，可根据实际硬件调整）
+   * 说明：标识设备所属诊室
+   */
+  clinic: number;
+
+  /**
+   * 通道号
+   * 类型：number（整型）
+   * 取值范围：0/1（双通道设备）
+   * 说明：0=通道1，1=通道2
+   */
+  channel: number;
+
+  /**
+   * 工作模式
+   * 类型：number（整型）
+   * 取值范围：0-5（示例）
+   * 说明：0=待机，1=治疗模式，2=测试模式，3=校准模式，4=休眠，5=故障
+   */
+  mode: number;
+
+  /**
+   * 频率
+   * 类型：number（整型）
+   * 取值范围：10-100（单位：Hz）
+   * 说明：设备工作频率，不同模式对应不同默认值
+   */
+  freq: number;
+
+  /**
+   * 强度
+   * 类型：number（整型）
+   * 取值范围：1-99（单位：%）
+   * 说明：设备输出强度百分比，0为无输出
+   */
+  strength: number;
+
+  /**
+   * 工作时长-分钟
+   * 类型：number（整型）
+   * 取值范围：0-59
+   * 说明：与timeSec组合表示总工作时长，例：10分钟30秒 → timeMin=10, timeSec=30
+   */
+  timeMin: number;
+
+  /**
+   * 工作时长-秒
+   * 类型：number（整型）
+   * 取值范围：0-59
+   * 说明：与timeMin组合表示总工作时长
+   */
+  timeSec: number;
+
+  /**
+   * 运行状态
+   * 类型：number（整型）
+   * 取值范围：0/1
+   * 说明：0=停止运行，1=开始运行
+   */
+  runState: number;
+}
+
+/**
+ * 设备信息回包 - 数据原型
+ * 蓝牙设备返回的基础信息
+ */
+export type DeviceInfo = {
+  /**
+   * 设备编号
+   * 类型：string
+   * 说明：设备唯一标识，由4位数字组成（例：1234）
+   */
+  deviceNo: string;
+
+  /**
+   * 固件版本号
+   * 类型：string
+   * 格式：x.y（例：1.2）
+   * 说明：设备固件版本，用于版本适配
+   */
+  version: string;
+
+  /**
+   * 设备状态码
+   * 类型：number（整型）
+   * 取值：0=正常，1=低电量，2=故障，3=校准中
+   * 说明：标识设备当前运行状态
+   */
+  status: number;
+}
+
+/**
+ * 通道参数回包 - 数据原型
+ * 蓝牙设备返回的指定通道实时参数
+ */
+export type ChannelParam = {
+  /**
+   * 通道号
+   * 类型：number（整型）
+   * 取值：0/1
+   * 说明：对应下发参数的channel字段
+   */
+  channel: number;
+
+  /**
+   * 当前频率
+   * 类型：number（整型）
+   * 单位：Hz
+   * 说明：设备实际运行频率（可能与下发值有偏差）
+   */
+  freq: number;
+
+  /**
+   * 当前强度
+   * 类型：number（整型）
+   * 单位：%
+   * 说明：设备实际输出强度
+   */
+  strength: number;
+
+  /**
+   * 剩余时长
+   * 类型：number（整型）
+   * 单位：秒
+   * 说明：设备剩余工作时长（timeMin*60 + timeSec - 已运行时长）
+   */
+  remainTime: number;
+}
+
+/**
+ * 下发参数确认回包 - 数据原型
+ * 蓝牙设备返回的参数下发结果
+ */
+export type SendAck = {
+  /**
+   * 下发结果
+   * 类型：boolean
+   * 说明：true=参数接收成功，false=参数接收失败（格式错误/超出范围）
+   */
+  success: boolean;
+
+  /**
+   * 错误码（可选）
+   * 类型：number（整型）
+   * 取值：0=无错误，1=参数超出范围，2=通道不存在，3=设备忙
+   * 说明：仅success=false时返回有效
+   */
+  errorCode: number | null;
+}
+
+export class BleProtocol {
+  /**
+   * 轮询定时器ID
+   * 私有静态属性，仅内部管理轮询状态
+   */
+  private static pollTimer: number | null = null;
+
+  /**
+   * 组包：查询设备信息指令
+   * @returns number[] - 可直接传给xl-ble的writeBytes方法
+   * 协议格式：[帧头, 数据长度, 命令码, 保留位, 帧尾]
+   * 示例：[0xAA, 0x01, 0xC0, 0x00, 0x55]
+   */
+  public static getDeviceInfoCmd(): number[] {
+    return [
+      0xAA, // 帧头（固定）
+      0x01, // 数据长度（除帧头/帧尾外的字节数）
+      0xC0, // 命令码（0xC0=查询设备信息）
+      0x00, // 保留位
+      0x55  // 帧尾（固定）
+    ];
+  }
+
+  /**
+   * 组包：下发参数指令
+   * @param params - 下发参数对象（SendParam）
+   * @returns number[] - 可直接传给xl-ble的writeBytes方法
+   * 协议格式：[帧头, 数据长度, 命令码, 诊室号, 通道号, 模式, 频率, 强度, 分钟, 秒, 运行状态, 帧尾]
+   */
+  public static sendParamsCmd(params: SendParam): number[] {
+    return [
+      0xAA,               // 帧头（固定）
+      0x08,               // 数据长度（8个业务参数）
+      0xB0,               // 命令码（0xB0=下发参数）
+      params.clinic,      // 诊室编号
+      params.channel,     // 通道号
+      params.mode,        // 工作模式
+      params.freq,        // 频率
+      params.strength,    // 强度
+      params.timeMin,     // 时长-分钟
+      params.timeSec,     // 时长-秒
+      params.runState,    // 运行状态
+      0x55                // 帧尾（固定）
+    ];
+  }
+
+  /**
+   * 组包：查询通道参数指令
+   * @param channel - 通道号（0/1）
+   * @returns number[] - 可直接传给xl-ble的writeBytes方法
+   * 协议格式：[帧头, 数据长度, 命令码, 通道号, 帧尾]
+   */
+  public static queryParamsCmd(channel: 0 | 1): number[] {
+    return [
+      0xAA, // 帧头（固定）
+      0x02, // 数据长度
+      0xB1, // 命令码（0xB1=查询通道参数）
+      channel, // 通道号
+      0x55  // 帧尾（固定）
+    ];
+  }
+
+  /**
+   * 解析：设备信息回包
+   * @param data - xl-ble的onDataReceived返回的原始数据（number[]）
+   * @returns DeviceInfo - 解析后的设备信息对象
+   * 回包格式：[0xAA, 0x06, 0xC0, 设备号1, 设备号2, 设备号3, 设备号4, 版本主号, 版本次号, 状态码, 0x55]
+   */
+  public static parseDeviceInfo(data: number[]): DeviceInfo {
+    // 数据合法性校验：长度不足/帧头帧尾错误直接返回空
+    if (data.length < 11 || data[0] != 0xAA || data[10] != 0x55) {
+      console.error('【解析失败】设备信息数据格式错误', data);
+      return { deviceNo: '', version: '', status: 0 };
+    }
+
+    return {
+      deviceNo: `${data[3]}${data[4]}${data[5]}${data[6]}`, // 拼接4位设备号
+      version: `${data[7]}.${data[8]}`, // 拼接版本号（x.y）
+      status: data[9] // 设备状态码
+    };
+  }
+
+  /**
+   * 解析：下发参数确认回包
+   * @param data - xl-ble的onDataReceived返回的原始数据（number[]）
+   * @returns SendAck - 解析后的下发结果对象
+   * 回包格式：[0xAA, 0x02, 0xB0, 结果码, 错误码, 0x55]
+   */
+  public static parseSendParamAck(data: number[]): SendAck {
+    if (data.length < 6 || data[0] != 0xAA || data[5] != 0x55) {
+      console.error('【解析失败】下发确认数据格式错误', data);
+      return { success: false, errorCode: 0 };
+    }
+
+    return {
+      success: data[3] == 0x01, // 0x01=成功，其他=失败
+      errorCode: data[4] // 错误码（仅失败时有效）
+    };
+  }
+
+  /**
+   * 解析：通道参数回包
+   * @param data - xl-ble的onDataReceived返回的原始数据（number[]）
+   * @returns ChannelParam - 解析后的通道参数对象
+   * 回包格式：[0xAA, 0x05, 0xB1, 通道号, 频率, 强度, 剩余分钟, 剩余秒, 0x55]
+   */
+  public static parseQueryParams(data: number[]): ChannelParam {
+    if (data.length < 9 || data[0] != 0xAA || data[8] != 0x55) {
+      console.error('【解析失败】通道参数数据格式错误', data);
+      return { channel: 0, freq: 0, strength: 0, remainTime: 0 };
+    }
+
+    return {
+      channel: data[3], // 通道号
+      freq: data[4], // 当前频率
+      strength: data[5], // 当前强度
+      remainTime: data[6] * 60 + data[7] // 剩余时长（秒）
+    };
+  }
+
+  /**
+   * 统一解析入口：根据命令码自动分发解析逻辑
+   * @param data - xl-ble的onDataReceived返回的原始数据（number[]）
+   * @returns void - 解析结果可通过回调/状态管理传递到页面
+   */
+  public static parseReceivedData(data: number[]): void {
+    // 基础校验：非数组/长度不足直接返回
+    if (!Array.isArray(data) || data.length < 5) {
+      console.error('【解析失败】原始数据不合法', data);
+      return;
+    }
+
+    const cmdCode = data[2]; // 命令码（第3位）
+    switch (cmdCode) {
+      case 0xC0: // 设备信息回包
+        const deviceInfo = this.parseDeviceInfo(data);
+        console.log('【解析完成】设备信息', deviceInfo);
+        // 可通过事件/回调将结果传递到页面
+        break;
+      case 0xB0: // 下发参数确认回包
+        const sendAck = this.parseSendParamAck(data);
+        console.log('【解析完成】下发确认', sendAck);
+        break;
+      case 0xB1: // 通道参数回包
+        const channelParam = this.parseQueryParams(data);
+        console.log('【解析完成】通道参数', channelParam);
+        break;
+      default:
+        console.warn('【解析警告】未知命令码', cmdCode, data);
+    }
+  }
+
+  /**
+   * 启动500ms轮询：定时发送查询设备信息指令
+   * @param sendCmd - 发送指令的回调函数（接收number[]指令）
+   * @returns void
+   */
+  public static start500msQuery(sendCmd: (cmd: number[]) => void): void {
+    // 先停止已有轮询，避免重复
+    this.stopPoll();
+    // 启动新轮询：每500ms执行一次发送指令
+    this.pollTimer = setInterval(() => {
+      sendCmd(this.getDeviceInfoCmd());
+    }, 500);
+    console.log('【轮询】已启动（500ms）');
+  }
+
+  /**
+   * 停止轮询：清空定时器
+   * @returns void
+   */
+  public static stopPoll(): void {
+    const timer = this.pollTimer;
+    if (timer != null) {
+      clearInterval(timer);
+      this.pollTimer = null;
+      console.log('【轮询】已停止');
+    }
+  }
+}
+
+// 导出常用方法，页面可直接按函数方式引用
+export function getDeviceInfoCmd(): number[] {
+  return BleProtocol.getDeviceInfoCmd();
+}
+
+export function sendParamsCmd(params: SendParam): number[] {
+  return BleProtocol.sendParamsCmd(params);
+}
+
+export function queryParamsCmd(channel: 0 | 1): number[] {
+  return BleProtocol.queryParamsCmd(channel);
+}
+
+export function parseDeviceInfo(data: number[]): DeviceInfo {
+  return BleProtocol.parseDeviceInfo(data);
+}
+
+export function parseSendParamAck(data: number[]): SendAck {
+  return BleProtocol.parseSendParamAck(data);
+}
+
+export function parseQueryParams(data: number[]): ChannelParam {
+  return BleProtocol.parseQueryParams(data);
+}
+
+export function parseReceivedData(data: number[]): void {
+  BleProtocol.parseReceivedData(data);
+}
+
+export function start500msQuery(sendCmd: (cmd: number[]) => void): void {
+  BleProtocol.start500msQuery(sendCmd);
+}
+
+export function stopPoll(): void {
+  BleProtocol.stopPoll();
+}

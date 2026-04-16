@@ -1,27 +1,33 @@
 {
 	"pages": [
+		// {
+		// 	"path": "pages/index/index",
+		// 	"style": {
+		// 		"navigationBarTitleText": "PL-APP"
+		// 	}
+		// },
+		// {
+		// 	"path": "pages/m1/m1",
+		// 	"style": {
+		// 		"navigationBarTitleText": ""
+		// 	}
+		// },
+		// {
+		// 	"path": "pages/duo/duo",
+		// 	"style": {
+		// 		"navigationBarTitleText": ""
+		// 	}
+		// },
+		// {
+		// 	"path": "pages/duo/user",
+		// 	"style": {
+		// 		"navigationBarTitleText": ""
+		// 	}
+		// },
 		{
-			"path": "pages/index/index",
+			"path": "pages/test/test",
 			"style": {
-				"navigationBarTitleText": "PL-APP"
-			}
-		},
-		{
-			"path": "pages/m1/m1",
-			"style": {
-				"navigationBarTitleText": "PL-M1"
-			}
-		},
-		{
-			"path": "pages/duo/duo",
-			"style": {
-				"navigationBarTitleText": "PL-DUO-PRO"
-			}
-		},
-		{
-			"path": "pages/duo/user",
-			"style": {
-				"navigationBarTitleText": "PL-DUO-USER"
+				"navigationBarTitleText": "BLE-TEST"
 			}
 		}
 	],

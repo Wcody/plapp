@@ -20,25 +20,6 @@ import { ref } from 'vue'
 
 const title = ref('Welcome to use PL-APP!')
 
-// 扫一扫
-const scanCode = () => {
-	uni.scanCode({
-		success: (res) => {
-			console.log('result:', res.result)
-			uni.showToast({
-				title: 'Scan success',
-				icon: 'success'
-			})
-		},
-		fail: () => {
-			uni.showToast({
-				title: 'Scan failed',
-				icon: 'none'
-			})
-		}
-	})
-}
-
 const openWinByOperId = (operId: number) => {
 	let url: string = '/pages/index/index';
 	if (operId == 1) {
@@ -62,6 +43,46 @@ const openWinByOperId = (operId: number) => {
 	})
 }
 
+// 扫一扫
+const scanCode = () => {
+	uni.scanCode({
+		success: (res) => {
+			console.log('result:', res.result);
+			const items: string[] = res.result.split(';')
+			console.log('items:', items);
+			if (items.length === 4) {
+				const [type, ui, mac] = items
+				if (type != 'BLE') {
+					uni.showToast({
+						title: 'Invalid QR code type',
+						icon: 'error'
+					})
+					return
+				}
+				if (ui.includes('DUO')) {
+					openWinByOperId(3);
+				} else if (ui.includes('DUOT')) {
+					openWinByOperId(2);
+				} else if (ui.includes('M1')) {
+					openWinByOperId(1);
+				} else {
+					uni.showToast({
+						title: 'Unknown device type in QR code',
+						icon: 'error'
+					})
+				}
+			} else {
+				uni.showToast({ title: 'Invalid QR code format', icon: 'none' })
+			}
+		},
+		fail: () => {
+			uni.showToast({
+				title: 'Scan failed',
+				icon: 'none'
+			})
+		}
+	})
+}
 const customSelect = (operId: number) => {
 	openWinByOperId(operId);
 }
