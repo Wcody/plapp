@@ -1,0 +1,140 @@
+/**
+ * 蓝牙连接状态监听
+ * @param callBack 见: ConnectOptions，连接、断开、失败回调
+ */
+export declare function onConnectionStateChange(callBack : ConnectionStateBack) : void;
+/**
+ * 蓝牙开关状态监听
+ * @param callBack 见: BoolCallbackAction
+ */
+export declare function onBluetoothStatusChanged(callBack : BoolCallbackAction) : void;
+/**
+ * 蓝牙数据回传回调
+ * @param callBack 见: DataReceived，返回字节数组
+ */
+export declare function onDataReceived(callBack : DataReceived) : void;
+/**
+ * 蓝牙数据写入完成回调
+ * @param callBack 见: BoolCallbackAction
+ */
+export declare function onWriteComplete(callBack : BoolCallbackAction) : void;
+/**
+ * mtu设置回调
+ * @param callBack 见: NumberBack
+ */
+export declare function onMtuChanged(callBack : MtuBack) : void;
+/**
+ * 获取配对设备(Android)
+ */
+export declare function getPairedDevices() : BLEDevice[];
+/**
+ * 获取已连接设备
+ */
+export declare function getConnectedDevice() : BLEDevice | null;
+/**
+ * 获取蓝牙服务及特征id
+ */
+export declare function getServiceAndCharacteristics() : string;
+/**
+ * 开始扫描蓝牙设备
+ */
+export declare function startScan(callBcak : DeviceBack, options : ScanOptions | null) : void;
+/**
+ * 停止扫描蓝牙设备
+ */
+export declare function stopScan() : void;
+/**
+ * 连接蓝牙设备
+ */
+export declare function connect(deviceId : string, opitons ?: ConnectOpitons) : void;
+/**
+ * 断开连接蓝牙设备
+ */
+export declare function disconnect() : void;
+/**
+ * 获取连接状态
+ */
+export declare function isConnected() : boolean;
+/**
+ * 开启蓝牙开关
+ */
+export declare function enableBluetooth() : void;
+/**
+ * 关闭蓝牙开关
+ */
+export declare function disableBluetooth() : void;
+/**
+ * 获取最大mtu
+ */
+export declare function getMaxMtu() : number;
+/**
+ * 设置写入数据分包大小
+ */
+export declare function setMtu(mtu : number) : void;
+/**
+ * 写入字节数组数据
+ */
+export declare function writeBytes(data : number[]) : void;
+/**
+ * 写入字符串数据
+ */
+export declare function writeString(cmd : string, charset ?: null | "GBK") : void;
+/**
+ * 读取蓝牙设备的特征值的二进制数据值。注意：必须设备的特征值支持 read 才可以成功调用。
+ */
+export declare function readCharacteristicValue(options : ReadOptions) : void;
+/**
+ * 读取已连接设备信号
+ */
+export declare function readRssi(callback : NumberCallbackAction) : void;
+
+
+export type BLEDevice = {
+	name : string		// 设备名称
+	deviceId : string	// 设备id, 安卓: mac，iOS: UUID
+	rssi : number		// 信号强度
+	manufacturerData ?: string[]	// 制造商数据
+}
+
+export type DeviceBack = (device : BLEDevice) => void;
+export type BoolCallbackAction = (flag : boolean) => void;
+export type NumberCallbackAction = (flag : number) => void;
+export type DataReceived = (data : number[]) => void;
+export type MtuBack = (mtu : number, isOK : boolean) => void;
+
+export type State = 'connected' | 'disconnected' | 'connectFail'; // 已连接 | 断开连接 | 连接失败
+
+export type ConnectionState = {
+	state : State,
+	msg : string
+}
+
+export type ConnectionStateBack = (state : ConnectionState) => void
+
+export type ConnectOpitons = {
+	seviceUuid : string	// 指定的服务 uuid
+	writeUuid : string	// 指定的写入 uuid
+	notifyUuid : string	// 指定的通知 uuid
+}
+
+export type ServiceAndCharacteristics = {
+	service : string,
+	characteristics : string[]
+}
+
+export type ScanOptions = {
+	services ?: string[]
+}
+
+export type ReadResult = {
+	isOK : boolean,   // 是否成功
+	data : number[]	 // 读取的数据
+}
+
+export type ReadBack = (result : ReadResult) => void;
+
+export type ReadOptions = {
+	serviceId : string,
+	characteristicId : string,
+	callback : ReadBack
+}

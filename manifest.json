@@ -2,8 +2,8 @@
 	"name": "PL-APP",
 	"appid": "__UNI__361969B",
 	"description": "PL系列控制端",
-	"versionName": "1.0.1",
-	"versionCode": "101",
+	"versionName": "1.0.3",
+	"versionCode": "103",
 	"uni-app-x": {},
 	/* 快应用特有相关 */
 	"quickapp": {},
@@ -43,7 +43,8 @@
 	"app-android": {
 		"distribute": {
 			"modules": {
-				"uni-barcode-scanning": {}
+				"uni-barcode-scanning": {},
+				"xl-ble": {}
 			},
 			"icons": {
 				"hdpi": "",
@@ -62,17 +63,19 @@
 			],
 			"permissions": [
 				"<uses-permission android:name=\"android.permission.BLUETOOTH\"/>",
-				"<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\"/>",
-				"<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+				"<uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\" />",
+				"<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>",
 				"<uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\"/>",
-				"<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"/>"
+				"<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+				"<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>"
 			]
 		}
 	},
 	"app-ios": {
 		"distribute": {
 			"modules": {
-				"uni-barcode-scanning": {}
+				"uni-barcode-scanning": {},
+				"xl-ble": {}
 			},
 			"icons": {},
 			"splashScreens": {},

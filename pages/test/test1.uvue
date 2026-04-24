@@ -1,0 +1,286 @@
+<template>
+	<scroll-view class="page" scroll-y>
+		<view class="container">
+			<!-- 操作按钮 -->
+			<view class="btn-group">
+				<button class="btn btn-gap" @click="startScan">1. 扫描设备</button>
+				<button class="btn btn-gap" :class="deviceId.length == 0 ? 'btn-disabled' : ''"
+					:disabled="deviceId.length == 0" @click="connectDevice">2. 连接设备</button>
+				<button class="btn btn-gap" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="disconnectDevice">3. 断开连接</button>
+				<button class="btn" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="readDeviceInfo">4. 查询从机信息1</button>
+				<button class="btn btn-gap" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="sendTestData">5. 下发参数2</button>
+				<button class="btn btn-gap" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="readDeviceParam">6. 查询从机参数3</button>
+			</view>
+
+			<!-- 状态展示 -->
+			<view class="info-card">
+				<text class="card-title">蓝牙状态</text>
+				<text class="text">蓝牙适配器：{{ bleEnabled ? '✅ 已开启' : '❌ 未开启' }}</text>
+				<text class="text">扫描状态：{{ scanning ? '🔍 扫描中...' : '停止扫描' }}</text>
+				<text class="text">设备ID：{{ deviceId.length > 0 ? deviceId : '未获取' }}</text>
+				<text class="text">连接状态：{{ isConnected ? '✅ 已连接' : '❌ 未连接' }}</text>
+			</view>
+
+			<!-- 数据日志 -->
+			<view class="log-card">
+				<text class="card-title">接收数据日志</text>
+				<text class="log-content">{{ logText }}</text>
+			</view>
+		</view>
+	</scroll-view>
+</template>
+
+<script lang="uts" setup>
+	import { ref, onMounted, onUnmounted } from "vue";
+	import * as ble from '@/uni_modules/xl-ble';
+	import { BleProtocol, Cmd1DeviceInfoResp, Cmd3ParamsResp, Cmd2SetParamsReq, BleCmd } from '@/utils/bleProtocol.uts';
+
+	// ==================== 蓝牙配置（根据你的硬件修改）====================
+	const BLE_SERVICE_UUID = "0000ff00-0000-1000-8000-00805f9b34fb";
+	const BLE_WRITE_UUID = "0000ff02-0000-1000-8000-00805f9b34fb";
+	const BLE_NOTIFY_UUID = "0000ff01-0000-1000-8000-00805f9b34fb";
+	const BLE_TARGET_DEVICE_ID = "B4:C2:E0:E7:C4:34";
+
+	// ==================== 响应式状态 ===================
+	const bleEnabled = ref(false);      // 蓝牙是否开启
+	const scanning = ref(false);        // 是否正在扫描
+	const deviceId = ref("");           // 选中的设备ID
+	const isConnected = ref(false);     // 是否连接成功
+	const logText = ref("初始化完成...");// 数据日志
+	let connectTimeoutId : number | null = null;
+
+	// ==================== 工具方法：添加日志 ====================
+	function addLog(text : string) {
+		const time = new Date().toLocaleTimeString();
+		logText.value = `[${time}] ${text}\n` + logText.value;
+	}
+
+	function clearConnectTimeout() {
+		const timeoutId = connectTimeoutId;
+		if (timeoutId != null) {
+			clearTimeout(timeoutId);
+			connectTimeoutId = null;
+		}
+	}
+
+	// ==================== 3. 断开连接 ====================
+	function disconnectDevice() {
+		clearConnectTimeout();
+		ble.disconnect();
+		isConnected.value = false;
+		addLog("手动断开连接");
+	}
+
+	// ==================== 生命周期：绑定监听 ====================
+	onMounted(() => {
+		console.log("页面加载，初始化蓝牙监听");
+
+		ble.onBluetoothStatusChanged((isOn : boolean) => {
+			bleEnabled.value = isOn;
+			addLog(`蓝牙${isOn ? "已开启" : "已关闭"}`);
+			if (!isOn) disconnectDevice();
+		});
+
+		// 监听连接状态变化
+		ble.onConnectionStateChange((res : ble.ConnectionState) => {
+			console.log("连接状态：", res);
+			if (res.state == "connected") {
+				clearConnectTimeout();
+				isConnected.value = true;
+				addLog("✅ 设备连接成功");
+			} else {
+				clearConnectTimeout();
+				isConnected.value = false;
+				addLog("❌ 设备已断开/连接失败");
+			}
+		});
+
+		// 监听设备返回数据（核心） 
+		ble.onDataReceived((data : number[]) => {
+			//
+			addLog(`收到原始数据1：${JSON.stringify(data)}`);
+			const cmd = data[2];
+			if (cmd == BleCmd.CMD1_QUERY_DEVICE_INFO) {
+				const info = BleProtocol.cmd1_parseDeviceInfo(data);
+				console.log("解析设备信息：", info);
+				addLog(`设备信息：${JSON.stringify(info?.toJSON())}`);
+			} else if (cmd == BleCmd.CMD2_SET_PARAMS) {
+				const params = BleProtocol.cmd2_parseSetAck(data);
+				addLog(`系统参数：${params}`);
+			} else if (cmd == BleCmd.CMD3_QUERY_PARAMS) {
+				const params = BleProtocol.cmd3_parseParams(data);
+				addLog(`系统参数：${JSON.stringify(params?.toJSON())}`);
+			} else {
+				addLog(`未知命令数据q：${JSON.stringify(data)}`);
+			}
+		});
+
+		// 监听写入结果
+		ble.onWriteComplete((ok : boolean) => {
+			addLog(`数据发送：${ok ? "成功" : "失败"}`);
+		});
+	});
+
+	// ==================== 页面卸载 ====================
+	onUnmounted(() => {
+		clearConnectTimeout();
+		ble.stopScan();
+		ble.disconnect();
+		addLog("页面退出，已释放蓝牙资源");
+	});
+
+	// ==================== 1. 开始扫描 ===================
+	function startScan() {
+		if (!bleEnabled.value) {
+			uni.showToast({ title: "请先开启蓝牙", icon: "none" });
+			return;
+		}
+
+		scanning.value = true;
+		deviceId.value = "";
+		addLog("开始扫描设备...");
+
+		ble.startScan((device : ble.BLEDevice) => {
+			console.log("扫描到：", device);
+			if (device.deviceId == BLE_TARGET_DEVICE_ID) {
+				deviceId.value = device.deviceId;
+				ble.stopScan();
+				scanning.value = false;
+				addLog(`✅ 找到目标设备：${device.name}`);
+				uni.showToast({ title: "找到设备", icon: "success" });
+			}
+		}, null);
+
+		// 10秒超时
+		setTimeout(() => {
+			if (scanning.value) {
+				ble.stopScan();
+				scanning.value = false;
+				addLog("⏰ 扫描超时");
+			}
+		}, 10000);
+	}
+
+	// ==================== 2. 连接设备 ====================
+	function connectDevice() {
+		if (deviceId.value.length == 0) {
+			uni.showToast({ title: "请先扫描设备", icon: "none" });
+			return;
+		}
+
+		addLog("正在连接设备...");
+		uni.showToast({ title: "连接中" });
+
+		ble.connect(deviceId.value, {
+			seviceUuid: BLE_SERVICE_UUID,
+			writeUuid: BLE_WRITE_UUID,
+			notifyUuid: BLE_NOTIFY_UUID
+		});
+
+		clearConnectTimeout();
+		connectTimeoutId = setTimeout(() => {
+			if (!isConnected.value) {
+				addLog("⏰ 连接超时");
+				uni.showToast({ title: "超时未连接" });
+			}
+		}, 5000);
+	}
+
+	// ==================== 4. 查询设备信息1 ==================== 
+	function readDeviceInfo() {
+		const cmd = BleProtocol.cmd1_sendQueryDeviceInfo();
+		ble.writeBytes(cmd);
+		addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
+	}
+
+	// ==================== 4. 下发参数2 ====================
+	function sendTestData() {
+		// 示例：发送16进制 [0x01,0x02,0x03]
+		const params = new Cmd2SetParamsReq();
+		params.clinic = 0;
+		params.channel = 0;
+		params.mode = 1;
+		params.freq = 185;
+		params.power = 77;
+		params.timeMin = 59;
+		params.timeSec = 48;
+		params.runState = 1;
+		const cmd = BleProtocol.cmd2_sendSetParams(params);
+		ble.writeBytes(cmd);
+		addLog(`已发送：${JSON.stringify(cmd)}`);
+	}
+
+	// ==================== 6. 查询从机参数 ==================== 
+	function readDeviceParam() {
+		const cmd = BleProtocol.cmd3_sendQueryParams(1);
+		ble.writeBytes(cmd);
+		addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
+	}
+</script>
+
+<style scoped>
+	.page {
+		flex: 1;
+		background-color: #f5f5f5;
+	}
+
+	.container {
+		padding: 20rpx;
+	}
+
+	.btn-group {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 24rpx;
+	}
+
+	.btn-gap {
+		margin-bottom: 16rpx;
+	}
+
+	.btn {
+		height: 88rpx;
+		background-color: #007aff;
+		color: white;
+		border-radius: 12rpx;
+		font-size: 32rpx;
+	}
+
+	.btn-disabled {
+		background-color: #ccc;
+		color: #999;
+	}
+
+	.info-card,
+	.log-card {
+		background: white;
+		border-radius: 16rpx;
+		padding: 24rpx;
+		margin-bottom: 24rpx;
+	}
+
+	.card-title {
+		font-size: 36rpx;
+		font-weight: bold;
+		margin-bottom: 16rpx;
+		color: #333;
+	}
+
+	.text {
+		font-size: 28rpx;
+		color: #666;
+		line-height: 1.6;
+	}
+
+	.log-content {
+		font-size: 24rpx;
+		color: #444;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		max-height: 600rpx;
+	}
+</style>

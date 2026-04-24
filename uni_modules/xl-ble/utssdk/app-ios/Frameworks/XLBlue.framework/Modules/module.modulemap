@@ -1,0 +1,6 @@
+framework module XLBlue {
+  umbrella header "XLBlue.h"
+  export *
+
+  module * { export * }
+}

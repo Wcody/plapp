@@ -1,0 +1,225 @@
+import { ref } from "vue";
+import * as ble from '@/uni_modules/xl-ble';
+import { BleProtocol, Cmd2SetParamsReq, BleCmd } from '@/utils/bleProtocol.uts';
+
+export class BluetoothSession {
+  private targetDeviceId: string;
+  private readonly serviceUuid: string = "0000ff00-0000-1000-8000-00805f9b34fb";
+  private readonly writeUuid: string = "0000ff00-0000-1000-8000-00805f9b34fb";
+  private readonly notifyUuid: string = "0000ff00-0000-1000-8000-00805f9b34fb";
+  private connectTimeoutId: number | null = null;
+  private autoFlowIntervalId: number | null = null;
+
+  bleEnabled = ref(false);
+  scanning = ref(false);
+  deviceId = ref("");
+  isConnected = ref(false);
+  logText = ref("初始化完成...");
+  isAutoConnecting = ref(false);
+
+  constructor(targetDeviceId: string) {
+    this.targetDeviceId = targetDeviceId;
+  }
+
+  addLog(text: string): void {
+    const time = new Date().toLocaleTimeString();
+    this.logText.value = `[${time}] ${text}\n` + this.logText.value;
+  }
+
+  clearConnectTimeout(): void {
+    const timeoutId = this.connectTimeoutId;
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+      this.connectTimeoutId = null;
+    }
+  }
+
+  startScan(): void {
+    if (!this.bleEnabled.value) {
+      uni.showToast({ title: "请先开启蓝牙", icon: "none" });
+      return;
+    }
+
+    this.scanning.value = true;
+    this.deviceId.value = "";
+    this.addLog("开始扫描设备...");
+
+    ble.startScan((device) => {
+      if (device.deviceId == this.targetDeviceId) {
+        this.deviceId.value = device.deviceId;
+        ble.stopScan();
+        this.scanning.value = false;
+        this.addLog(`✅ 找到目标设备：${device.name}`);
+
+        if (!this.isConnected.value && !this.isAutoConnecting.value) {
+          setTimeout(() => {
+            this.connectDevice();
+          }, 200);
+        }
+      }
+    }, null);
+
+    setTimeout(() => {
+      if (this.scanning.value) {
+        ble.stopScan();
+        this.scanning.value = false;
+        this.addLog("⏰ 扫描超时");
+      }
+    }, 10000);
+  }
+
+  connectDevice(): void {
+    if (this.deviceId.value.length == 0) {
+      uni.showToast({ title: "请先扫描设备", icon: "none" });
+      return;
+    }
+
+    this.isAutoConnecting.value = true;
+    this.addLog("正在连接设备...");
+    uni.showToast({ title: "连接中", icon: "none" });
+
+    ble.connect(this.deviceId.value, {
+      seviceUuid: this.serviceUuid,
+      writeUuid: this.writeUuid,
+      notifyUuid: this.notifyUuid
+    });
+
+    this.clearConnectTimeout();
+    this.connectTimeoutId = setTimeout(() => {
+      if (!this.isConnected.value) {
+        this.addLog("⏰ 连接超时");
+        uni.showToast({ title: "超时未连接", icon: "none" });
+        this.isAutoConnecting.value = false;
+      }
+    }, 5000);
+  }
+
+  disconnectDevice(): void {
+    this.clearConnectTimeout();
+    ble.disconnect();
+    this.isConnected.value = false;
+    this.isAutoConnecting.value = false;
+    this.addLog("手动断开连接");
+  }
+
+  readDeviceInfo(): void {
+    const cmd = BleProtocol.cmd1_sendQueryDeviceInfo();
+    ble.writeBytes(cmd);
+    this.addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
+  }
+
+  sendTestData(): void {
+    const req = new Cmd2SetParamsReq();
+    req.clinic = 0;
+    req.channel = 1;
+    req.mode = 1;
+    req.freq = 185;
+    req.power = 77;
+    req.timeMin = 59;
+    req.timeSec = 48;
+    req.runState = 1;
+
+    const cmd = BleProtocol.cmd2_sendSetParams(req);
+    ble.writeBytes(cmd);
+    this.addLog(`已发送：${JSON.stringify(cmd)}`);
+  }
+
+  readDeviceParam(): void {
+    const cmd = BleProtocol.cmd3_sendQueryParams(1);
+    ble.writeBytes(cmd);
+    this.addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
+  }
+
+  initAutoFlow(): void {
+    const currentIntervalId = this.autoFlowIntervalId;
+    if (currentIntervalId != null) {
+      clearInterval(currentIntervalId);
+      this.autoFlowIntervalId = null;
+    }
+
+    this.autoFlowIntervalId = setInterval(() => {
+      if (this.bleEnabled.value) {
+        const intervalId = this.autoFlowIntervalId;
+        if (intervalId != null) {
+          clearInterval(intervalId);
+          this.autoFlowIntervalId = null;
+        }
+        setTimeout(() => {
+          if (!this.scanning.value && this.deviceId.value.length == 0) {
+            this.startScan();
+          }
+        }, 800);
+      }
+    }, 500);
+
+    setTimeout(() => {
+      const intervalId = this.autoFlowIntervalId;
+      if (intervalId != null) {
+        clearInterval(intervalId);
+        this.autoFlowIntervalId = null;
+      }
+    }, 10000);
+  }
+
+  initBluetoothListener(): void {
+	  ble.onDataReceived((data: number[]) => {
+	  	this.addLog(`收到原始数据1：${JSON.stringify(data)}`);
+	    const cmd = data[2];
+	    if (cmd == BleCmd.CMD1_QUERY_DEVICE_INFO) {
+	      const info = BleProtocol.cmd1_parseDeviceInfo(data);
+	      this.addLog(`设备信息：${JSON.stringify(info?.toJSON())}`);
+	    } else if (cmd == BleCmd.CMD2_SET_PARAMS) {
+	      const params = BleProtocol.cmd2_parseSetAck(data);
+	      this.addLog(`系统参数：${params}`);
+	    } else if (cmd == BleCmd.CMD3_QUERY_PARAMS) {
+	      const params = BleProtocol.cmd3_parseParams(data);
+	      this.addLog(`系统参数：${JSON.stringify(params?.toJSON())}`);
+	    } else {
+	      this.addLog(`未知命令数据：${JSON.stringify(data)}`);
+	    }
+	  });
+	  
+	  ble.onWriteComplete((ok: boolean) => {
+	    this.addLog(`数据发送：${ok ? "成功" : "失败"}`);
+	  });
+	  
+    ble.onBluetoothStatusChanged((isOn: boolean) => {
+      this.bleEnabled.value = isOn;
+      this.addLog(`蓝牙${isOn ? "已开启" : "已关闭"}`);
+      if (!isOn) {
+        this.disconnectDevice();
+      }
+    });
+
+    ble.onConnectionStateChange((res) => {
+      if (res.state == "connected") {
+        this.clearConnectTimeout();
+        this.isConnected.value = true;
+        this.isAutoConnecting.value = false;
+        this.addLog("✅ 设备连接成功");
+      } else {
+        this.clearConnectTimeout();
+        this.isConnected.value = false;
+        this.isAutoConnecting.value = false;
+        this.addLog("❌ 设备已断开/连接失败");
+      }
+    });
+  }
+
+  destroyBluetooth(): void {
+    this.clearConnectTimeout();
+    const intervalId = this.autoFlowIntervalId;
+    if (intervalId != null) {
+      clearInterval(intervalId);
+      this.autoFlowIntervalId = null;
+    }
+    ble.stopScan();
+    ble.disconnect();
+    this.isAutoConnecting.value = false;
+    this.addLog("已释放蓝牙资源");
+  }
+}
+
+export function useBluetooth(targetDeviceId: string): BluetoothSession {
+  return new BluetoothSession(targetDeviceId);
+}

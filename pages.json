@@ -18,18 +18,18 @@
 		// 		"navigationBarTitleText": ""
 		// 	}
 		// },
-		// {
-		// 	"path": "pages/duo/user",
-		// 	"style": {
-		// 		"navigationBarTitleText": ""
-		// 	}
-		// },
 		{
-			"path": "pages/test/test",
+			"path": "pages/duo/user",
 			"style": {
-				"navigationBarTitleText": "BLE-TEST"
+				"navigationBarTitleText": ""
 			}
 		}
+		// {
+		// 	"path": "pages/test/test",
+		// 	"style": {
+		// 		"navigationBarTitleText": "BLE-TEST"
+		// 	}
+		// }
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",
