@@ -10,6 +10,7 @@ export type ProgramItem = {
   title: string;
   features: string[];
   desc: string;
+  no: number;
   best: string[];
   totalFreqs: string;
   totalTime: number;
@@ -19,6 +20,9 @@ export type ProgramItem = {
 
 // 定义映射类型：key 是标题(string)，value 是程序对象(ProgramItem)
 export type ProgramsMap = Map<string, ProgramItem>;
+
+// 定义映射类型：key 是序号(number)，value 是程序对象(ProgramItem)
+export type ProgramsNoMap = Map<number, ProgramItem>;
 
 // ======================================
 // 完整程序数据（无断言、无类型报错）
@@ -31,7 +35,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '2-10',
 		totalTime: 26,
 		flags: [{ freq: 2, time: 8 }, { freq: 5, time: 10 }, { freq: 10, time: 8 }],
-		hasDamos: true
+		hasDamos: true,
+		no: 1,
 	},
 	{
 		title: 'CIRCULATION', features: ['Flow', 'Lymph', 'Warm-up'],
@@ -40,7 +45,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '4-7',
 		totalTime: 20,
 		flags: [{ freq: 4, time: 10 }, { freq: 7, time: 10 }],
-		hasDamos: true
+		hasDamos: true,
+		no: 2,
 	},
 	{
 		title: 'COMFORT', features: ['Modulate tension', 'Ease guarding'],
@@ -49,7 +55,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '3-15',
 		totalTime: 18,
 		flags: [{ freq: 3, time: 5 }, { freq: 10, time: 8 }, { freq: 15, time: 5 }],
-		hasDamos: false
+		hasDamos: false,
+		no: 3,
 	},
 	{
 		title: 'STRESS RELEASE', features: ['Downshift', 'Parasympathetic support'],
@@ -58,7 +65,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '1-4',
 		totalTime: 20,
 		flags: [{ freq: 1, time: 5 }, { freq: 2, time: 8 }, { freq: 4, time: 7 }],
-		hasDamos: true
+		hasDamos: true,
+		no: 4,
 	},
 	{
 		title: 'NERVOUS SYSTEM RESET', features: ['Rebalance', 'Awareness'],
@@ -67,7 +75,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '2-10',
 		totalTime: 21,
 		flags: [{ freq: 2, time: 5 }, { freq: 4, time: 8 }, { freq: 10, time: 8 }],
-		hasDamos: true
+		hasDamos: true,
+		no: 5,
 	},
 	{
 		title: 'FASCIA RELEASE', features: ['Softening', 'Glide', 'Mobility'],
@@ -76,7 +85,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '5-10',
 		totalTime: 20,
 		flags: [{ freq: 5, time: 6 }, { freq: 8, time: 8 }, { freq: 10, time: 6 }],
-		hasDamos: true
+		hasDamos: true,
+		no: 6,
 	},
 	{
 		title: 'PERFORMANCE', features: ['Activation', 'Readiness'],
@@ -85,7 +95,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '12-20',
 		totalTime: 15,
 		flags: [{ freq: 12, time: 5 }, { freq: 16, time: 5 }, { freq: 20, time: 5 }],
-		hasDamos: false
+		hasDamos: false,
+		no: 7,
 	},
 	{
 		title: 'MENTAL CLARITY', features: ['Focus', 'cognitive balance'],
@@ -94,7 +105,8 @@ export const programsList: ProgramItem[] = [
 		totalFreqs: '8-12',
 		totalTime: 20,
 		flags: [{ freq: 8, time: 6 }, { freq: 10, time: 8 }, { freq: 12, time: 6 }],
-		hasDamos: false
+		hasDamos: false,
+		no: 8,
 	}
 ];
 
@@ -107,6 +119,20 @@ export const getProgramsMap = (): ProgramsMap => {
 	// 2. 遍历赋值（类型完全安全）
 	programsList.forEach((program: ProgramItem) => {
 		map.set(program.title, program)
+	});
+	// 3. 返回映射表
+	return map;
+};
+
+// ======================================
+// 修复：用 UTS 原生对象做映射（抛弃UTSJSONObject，零报错）
+// ======================================
+export const getProgramsNoMap = (): ProgramsNoMap => {
+	// 1. 创建空映射对象（标准UTS对象，无任何原生兼容问题）
+	const map: ProgramsNoMap = new Map<number, ProgramItem>();
+	// 2. 遍历赋值（类型完全安全）
+	programsList.forEach((program: ProgramItem) => {
+		map.set(program.no, program)
 	});
 	// 3. 返回映射表
 	return map;

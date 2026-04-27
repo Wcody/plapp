@@ -70,7 +70,7 @@
 <script setup lang="uts">
 	import { ref, computed, onMounted, onUnmounted } from 'vue';
 	import { playClickSound } from '@/utils/common.uts';
-	import { getProgramsMap, ProgramItem, programsList, StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
+	import { getProgramsMap, getProgramsNoMap, ProgramItem, programsList, StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
 
 	// ====================== M1 蓝牙库（你指定的文件）======================
 	import { useM1Bluetooth, M1_SEND_CMD2, M1_SEND_CMD3, M1_RECV_CMD3, M1_BLE_CONNECTED } from '@/utils/useM1BleProtocol.uts';
@@ -109,7 +109,7 @@
 
 	const timeMin = ref(1);
 	const timeMax = ref(60);
-	const timeStep = ref(5);
+	const timeStep = ref(1);
 	const timeUnit = ref('Min');
 
 	const hasDamos = ref(true);
@@ -122,6 +122,7 @@
 
 	// ==================== 计算属性 ====================
 	const programsMap = getProgramsMap();
+	const programsNoMap = getProgramsNoMap();
 	const currentProgram = computed<ProgramItem>(() => {
 		const item = programsMap[selectedTitle.value];
 		return item ?? programsList[0];
@@ -195,46 +196,48 @@
 		canntUpdateNow.value = true;
 
 		const cmd = new M1Cmd2SetParamsReq();
-		cmd.mode = hasDamos.value ? 1 : 0;
-		cmd.runState = isRunning.value ? 1 : 0;
-		cmd.power = intensity.value;
+		cmd.mode = isP.value ? 1 : 0;
+		cmd.damp = hasDamos.value ? 1 : 0;
 		cmd.f1Freq = 0;
 		cmd.f1Time = 0; // 转换为秒
 		cmd.f2Freq = 0;
 		cmd.f2Time = 0;
 		cmd.f3Freq = 0;
 		cmd.f3Time = 0;
-		if (isM.value) {
+		if (isP.value) {
+			// P 模式下，频率和时间分段发送
+			cmd.part = currentProgram.value.no;
+			const flags = currentProgram.value.flags;
+			if (flags.length > 0) {
+				cmd.f1Freq = flags[0].freq * 10;
+				cmd.f1Time = flags[0].time * 60;
+			}
+			if (flags.length > 1) {
+				cmd.f2Freq = flags[1].freq * 10;
+				cmd.f2Time = flags[1].time * 60;
+			}
+			if (flags.length > 2) {
+				cmd.f3Freq = flags[2].freq * 10;
+				cmd.f3Time = flags[2].time * 60;
+			}
+		} else {
+			// M 模式下，频率和时间直接发送
+			cmd.part = 0;
 			// M 模式，只需要F1参数
 			cmd.f1Freq = frequency.value * 10;
-			cmd.f1Time = timeMinutes.value * 60; // 转换为秒
-		} else {
-			programsList.forEach((item) => {
-				if (item.title === selectedTitle.value) {
-					
-					const flags = item.flags;
-					if (flags.length > 0) {
-						cmd.f1Freq = flags[0].freq * 10;
-						cmd.f1Time = flags[0].time * 60; // 转换为秒
-					}
-					if (flags.length > 1) {
-						cmd.f2Freq = flags[1].freq * 10;
-						cmd.f2Time = flags[1].time * 60; // 转换为秒
-					}
-					if (flags.length > 2) {
-						cmd.f3Freq = flags[2].freq * 10;
-						cmd.f3Time = flags[2].time * 60; // 转换为秒
-					}
-				}
-			});
+			cmd.f1Time = timeMinutes.value * 60;
 		}
-
+		cmd.power = intensity.value;
+		cmd.runState = isRunning.value ? 1 : 0;
+		// 合计时间
 		const mins = Math.floor(timeMinutes.value);
 		const secs = Math.round((timeMinutes.value - mins) * 60);
 		cmd.timeMin = mins;
 		cmd.timeSec = secs;
-
-		uni.$emit(M1_SEND_CMD2, cmd.toJSON());
+		
+		const data = cmd.toJSON();
+		console.log('sendCmd2的对象', data);
+		uni.$emit(M1_SEND_CMD2, data);
 
 		clearTimeout(canntUpdateNowTimer.value);
 		canntUpdateNowTimer.value = setTimeout(() => {
@@ -294,9 +297,8 @@
 		isRunning.value = true;
 
 		let remainSec = timeMinutes.value * 60;
-		timeMax.value = remainSec;
+		timeMax.value = 3600;
 		timeMinutes.value = remainSec;
-		timeStep.value = 1;
 		timeMin.value = 0;
 		timeUnit.value = 'Min1';
 
@@ -376,18 +378,51 @@
 		isWorking.value = true;
 
 		try {
+			//切换模式
+			const mode = data.getNumber('mode', 0);
+			if (mode == 0) {
+				switchMode('M');
+			} else {
+				switchMode('P');
+				const part = data.getNumber('part', 0);
+				if (part > 0) {
+					const item = programsNoMap[part];
+					if (item != null) {
+						selectedTitle.value = item.title;
+					}
+				}
+				console.log('从CMD3更新，part=', part, 'selectedTitle=', selectedTitle.value);
+			}
+			//阻尼
+			const damp = data.getNumber('damp', 0);
+			hasDamos.value = damp === 1;
 			isRunning.value = data.getNumber('runState', 0) == 1;
-			hasDamos.value = data.getNumber('mode', 0) == 1;
 			intensity.value = data.getNumber('power', 10);
-			frequency.value = data.getNumber('f1Freq', 100) / 10;
-
+		
+			// 显示的频率和时间
+			if (isRunning.value) {
+				frequency.value = data.getNumber('runningFreq', 0) / 10;
+			} else {
+				frequency.value = data.getNumber('f1Freq', 100) / 10;
+			}
+			
+			// 不用处理F1到F3的信息
+			
+			// 显示的时间
 			const tMin = data.getNumber('timeMin', 0);
 			const tSec = data.getNumber('timeSec', 0);
-
-			if (timeUnit.value === 'Min1') {
+			if (isRunning.value) {
+				// 显示秒
 				timeMinutes.value = tMin * 60 + tSec;
+				timeUnit.value = 'Min1';
+				timeMax.value = 3600;
+				timeMin.value = 0;
 			} else {
+				// 显示分
 				timeMinutes.value = tMin + tSec / 60;
+				timeUnit.value = 'Min';
+				timeMax.value = 60;
+				timeMin.value = 1;
 			}
 		} finally {
 			isWorking.value = false;
