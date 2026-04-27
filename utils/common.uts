@@ -85,3 +85,22 @@ export const = formatUpperMac = (macStr: string): string => {
   // 每2位拼接冒号
   return clean.match(/.{2}/g)?.join(':') ?? '';
 }
+
+/**
+ * 防抖函数（UTS 安卓/iOS 兼容版）
+ * @param func 无参函数
+ * @param delay 延迟
+ */
+export function debounce(func: () => void, delay: number): () => void {
+	let timer: number = 0;
+
+	return () => {
+		if (timer != 0) {
+			clearTimeout(timer);
+		}
+
+		timer = setTimeout(() => {
+			func();
+		}, delay);
+	};
+}

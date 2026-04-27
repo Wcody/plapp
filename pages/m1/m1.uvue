@@ -30,16 +30,16 @@
 			<view style="height: 2%;"></view>
 			<!-- 1. Intensity（强度）控制模块 -->
 			<m1-slider-control title="Intensity" :model-value="intensity"
-				@update:model-value="intensity = $event as number;" :low="1" :high="100" :step-val="1" unit-str="%" />
+				@update:model-value="intensity = $event as number; debouncedSendCmd2()" :low="1" :high="100" :step-val="1" unit-str="%" />
 
 			<!-- 2. Frequency（频率）控制模块 -->
 			<m1-slider-control title="Frequency" :model-value="frequency"
-				@update:model-value="frequency = $event as number;" :low="0.5" :high="frequencyMax" :step-val="0.5"
+				@update:model-value="frequency = $event as number; debouncedSendCmd2()" :low="0.5" :high="frequencyMax" :step-val="0.5"
 				:disabled="isP || isRunning" unit-str="Hz" />
 
 			<!-- 3. Time（时间）控制模块 -->
 			<m1-slider-control title="Time" :model-value="timeMinutes"
-				@update:model-value="timeMinutes = $event as number;" :low="timeMin" :high="timeMax"
+				@update:model-value="timeMinutes = $event as number; debouncedSendCmd2()" :low="timeMin" :high="timeMax"
 				:step-val="timeStep" :disabled="isP || isRunning" :unit-str="timeUnit" />
 		</scroll-view>
 		<!-- 底部水印+返回按钮 -->
@@ -69,7 +69,7 @@
 
 <script setup lang="uts">
 	import { ref, computed, onMounted, onUnmounted } from 'vue';
-	import { playClickSound } from '@/utils/common.uts';
+	import { playClickSound, debounce } from '@/utils/common.uts';
 	import { getProgramsMap, getProgramsNoMap, ProgramItem, programsList, StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
 
 	// ====================== M1 蓝牙库（你指定的文件）======================
@@ -142,54 +142,12 @@
 		activeMode.value = mode;
 	};
 
-	// ==================== 强度 ====================
-	const adjustIntensity = (step : number) => {
-		const newValue = intensity.value + step;
-		if (newValue >= 0 && newValue <= 100) {
-			intensity.value = newValue;
-			sendCmd2();
-		}
-	};
-
-	const onIntensityChange = (value : any) => {
-		intensity.value = value.detail.value;
-		sendCmd2();
-	};
-
 	const isM = computed(() => activeMode.value === 'M');
 	const isP = computed(() => activeMode.value === 'P');
 
 	const btnTitle = computed(() => {
 		return isM.value ? "DAMPED OSCILLATION" : selectedTitle.value;
 	});
-
-	// ==================== 频率 ====================
-	const adjustFrequency = (step : number) => {
-		const newValue = frequency.value + step;
-		if (newValue >= 0 && newValue <= 20) {
-			frequency.value = newValue;
-			sendCmd2();
-		}
-	};
-
-	const onFrequencyChange = (value : any) => {
-		frequency.value = value.detail.value;
-		sendCmd2();
-	};
-
-	// ==================== 时间 ====================
-	const adjustTime = (step : number) => {
-		const newValue = timeMinutes.value + step;
-		if (newValue >= 0 && newValue <= 60) {
-			timeMinutes.value = newValue;
-			sendCmd2();
-		}
-	};
-
-	const onTimeChange = (value : any) => {
-		timeMinutes.value = value.detail.value;
-		sendCmd2();
-	};
 
 	// ==================== 发送 CMD2 ====================
 	const sendCmd2 = () => {
@@ -236,7 +194,6 @@
 		cmd.timeSec = secs;
 		
 		const data = cmd.toJSON();
-		console.log('sendCmd2的对象', data);
 		uni.$emit(M1_SEND_CMD2, data);
 
 		clearTimeout(canntUpdateNowTimer.value);
@@ -244,6 +201,8 @@
 			canntUpdateNow.value = false;
 		}, canntUpdateNowTimeout);
 	};
+	
+	const debouncedSendCmd2 = debounce(sendCmd2, 300);
 
 	// ==================== 发送 CMD3 ====================
 	const sendCmd3 = () => {
@@ -263,7 +222,7 @@
 			} else {
 				frequencyMax.value = 20;
 			}
-			sendCmd2();
+			debouncedSendCmd2();
 		} else {
 			itemListVisible.value = true;
 		}
@@ -302,7 +261,7 @@
 		timeMin.value = 0;
 		timeUnit.value = 'Min1';
 
-		sendCmd2();
+		debouncedSendCmd2();
 
 		startBeforeItem.value.intervalHandle = setInterval(() => {
 			remainSec--;
@@ -313,7 +272,7 @@
 				infoMsgVisible.value = true;
 				isRunning.value = false;
 				restoreData();
-				sendCmd2();
+				debouncedSendCmd2();
 			}
 		}, 1000);
 	};
@@ -324,7 +283,7 @@
 		playClickSound();
 		isRunning.value = false;
 		restoreData();
-		sendCmd2();
+		debouncedSendCmd2();
 	};
 
 	// ==================== 弹窗关闭 ====================
@@ -363,7 +322,7 @@
 			frequency.value = item.flags[0].freq;
 			timeMinutes.value = item.totalTime;
 			frequencyMax.value = item.hasDamos ? 10 : 20;
-			sendCmd2();
+			debouncedSendCmd2();
 		}
 		itemInfoVisible.value = true;
 	};
@@ -395,7 +354,7 @@
 			}
 			//阻尼
 			const damp = data.getNumber('damp', 0);
-			hasDamos.value = damp === 1;
+			hasDamos.value = damp == 1;
 			isRunning.value = data.getNumber('runState', 0) == 1;
 			intensity.value = data.getNumber('power', 10);
 		

@@ -17,7 +17,7 @@
 </template>
 <script setup lang="uts">
 	import { ref, watch } from 'vue';
-	import { playClickSound } from '@/utils/common.uts';
+	import { playClickSound, debounce } from '@/utils/common.uts';
 	import { ParamItem, initParamItem } from '@/data/duo-config.uts';
 	import { StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
 	import { useBluetooth, SEND_CMD2, SEND_CMD3, RECV_CMD2, RECV_CMD3, BLE_CONNECTED } from '@/utils/useBluetooth.uts';
@@ -123,6 +123,18 @@
 		}, canntUpdateNowTimeout);
 	};
 	
+	// 300ms 内多次调用，只执行最后一次，避免频繁发送蓝牙消息
+	const sendACmd2 = () => {
+		sendedCmd2(0);
+	};
+	const debouncedSendACmd2 = debounce(sendACmd2, 300);
+	
+	// 300ms 内多次调用，只执行最后一次，避免频繁发送蓝牙消息
+	const sendBCmd2 = () => {
+		sendedCmd2(1);
+	};
+	const debouncedSendBCmd2 = debounce(sendBCmd2, 300);
+	
 	const sendedCmd3 = () => {
 		uni.$emit(SEND_CMD3, 0);
 		setTimeout(() => {
@@ -223,13 +235,13 @@
 	const handleChannelAStart = () => {
 		channelAIsRunning.value = true;
 		backupDataBeforeStart(startBeforeItemA, channelAParams, 'A');
-		sendedCmd2(0);
+		debouncedSendACmd2();
 	};
 
 	const handleChannelAStop = () => {
 		channelAIsRunning.value = false;
 		restoreDataAfterFinish(startBeforeItemA, channelAParams);
-		sendedCmd2(0);
+		debouncedSendACmd2();
 	};
 
 	// ============== B通道事件处理 ==============
@@ -254,31 +266,31 @@
 	const handleChannelBStart = () => {
 		channelBIsRunning.value = true;
 		backupDataBeforeStart(startBeforeItemB, channelBParams, 'B');
-		sendedCmd2(1);
+		debouncedSendBCmd2();
 	};
 
 	const handleChannelBStop = () => {
 		channelBIsRunning.value = false;
 		restoreDataAfterFinish(startBeforeItemB, channelBParams);
-		sendedCmd2(1);
+		debouncedSendBCmd2();
 	};
 
 	const handleParamConfigClose = () => {
 		isWorking.value = false;
 		paramConfigVisible.value = false;
 		if (configMode.value == 'A') {
-			sendedCmd2(0);
+			debouncedSendACmd2();
 		} else if (configMode.value == 'B') {
-			sendedCmd2(1);
+			debouncedSendBCmd2();
 		}
 	};
 
 	const handleConfigChange = (param : ParamItem, val : number) => {
 		param.value = val;
 		if (configMode.value == 'A') {
-			sendedCmd2(0);
+			debouncedSendACmd2();
 		} else if (configMode.value == 'B') {
-			sendedCmd2(1);
+			debouncedSendBCmd2();
 		}
 	}
 
@@ -304,7 +316,7 @@
 				}
 			}
 		}
-		sendedCmd2(0);
+		debouncedSendACmd2();
 	};
 
 	const handleChannelBDamos = (val : boolean) => {
@@ -329,7 +341,7 @@
 				}
 			}
 		}
-		sendedCmd2(1);
+		debouncedSendBCmd2();
 	};
 
 	const handleMsgClose = (mode : string) => {
