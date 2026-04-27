@@ -37,6 +37,18 @@ export class Cmd2SetParamsReq {
 			timeSec: this.timeSec,
 			runState: this.runState
 		};
+	},
+	// 反序列化支持
+	fromJSON(json : UTSJSONObject) : Cmd2SetParamsReq {
+		this.clinic = json.getNumber('clinic', -1);
+		this.channel = json.getNumber('channel', -1);
+		this.mode = json.getNumber('mode', 0);
+		this.freq = json.getNumber('freq', 5);
+		this.power = json.getNumber('power', 100);
+		this.timeMin = json.getNumber('timeMin', 60);
+		this.timeSec = json.getNumber('timeSec', 0);
+		this.runState = json.getNumber('runState', 0);
+		return this;
 	}
 }
 

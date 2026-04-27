@@ -15,18 +15,39 @@
 	<duo-param-config :visible="paramConfigVisible" :param="configItem" @close="handleParamConfigClose"
 		@change="handleConfigChange"></duo-param-config>
 </template>
-
 <script setup lang="uts">
 	import { ref, watch } from 'vue';
 	import { playClickSound } from '@/utils/common.uts';
 	import { ParamItem, initParamItem } from '@/data/duo-config.uts';
 	import { StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
-	
+	import { useBluetooth, SEND_CMD2, SEND_CMD3, RECV_CMD2, RECV_CMD3, BLE_CONNECTED } from '@/utils/useBluetooth.uts';
+	import { Cmd3ParamsResp, Cmd2SetParamsReq } from '@/utils/bleProtocol.uts';
+
+	const props = defineProps({
+		deviceId: {
+			type: String,
+			default: "",
+		},
+		clinic: {
+			type: Number,
+			default: 0,
+		},
+	})
+
+	// 初始化蓝牙
+	const bluetooth = useBluetooth(props.deviceId);
+	// 要么读，要么写，不能同时进行，否则会有冲突
+	const isWorking = ref(false);
+	// 发送消息后，等待一段时间才能同步从机数据
+	const canntUpdateNow = ref(false);
+	const canntUpdateNowTimeout = 5000;
+	const canntUpdateNowTimer = ref(0);
+
 	// ========== 设置值相关 ===================
 	//选中的Item
 	const configItem = ref<ParamItem>(initParamItem());
 	const configMode = ref('A');
-	
+
 	// ============== 显示设置窗口 ==============
 	const paramConfigVisible = ref(false);
 	// ============== A通道状态 ==============
@@ -37,13 +58,14 @@
 	const startBeforeItemA = ref<StartBeforeItem>(intiStartBeforeItem());
 	// A消息框显示
 	const infoMsgVisibleA = ref(false);
+	//  修复：UTS 标准写法，自动推导类型，无构造函数报错
 	const channelAParams = ref([
-		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
+		{ title: 'Intensity', value: 99, unit: '%', isActive: false, min: 1, max: 100, fixed: 0, step: 1 },
 		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.5, max: 20, fixed: 1, step: 0.5 },
 		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 5 },
-		{ title: 'Energy', value: 0, unit: 'KGs', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
+		{ title: 'Energy', value: 0, unit: 'kGs', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
 	] as ParamItem[]);
-	
+
 	// ============== B通道状态 ==============
 	const channelBIsRunning = ref(false);
 	// ============== A阻尼震荡 ==============
@@ -53,19 +75,70 @@
 	// A消息框显示
 	const infoMsgVisibleB = ref(false);
 	const channelBParams = ref([
-		{ title: 'Intensity', value: 99, unit: '%', isActive: true, min: 1, max: 100, fixed: 0, step: 1 },
+		{ title: 'Intensity', value: 99, unit: '%', isActive: false, min: 1, max: 100, fixed: 0, step: 1 },
 		{ title: 'Frequency', value: 20, unit: 'Hz', isActive: false, min: 0.5, max: 20, fixed: 1, step: 0.5 },
 		{ title: 'Time', value: 60, unit: 'Min', isActive: false, min: 1, max: 60, fixed: 0, step: 5 },
-		{ title: 'Energy', value: 0, unit: 'KGs', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
+		{ title: 'Energy', value: 0, unit: 'kGs', isActive: false, min: 1, max: 100, fixed: 0, step: 1 }
 	] as ParamItem[]);
+
+	const sendedCmd2 = (chanel : number) => {
+		canntUpdateNow.value = true;
+		const itemS = (chanel == 0) ? channelAParams : channelBParams;
+		const intensity = itemS.value[0];
+		const frequency = itemS.value[1];
+		const time = itemS.value[2];
+		const cmd2Params = new Cmd2SetParamsReq();
+		cmd2Params.channel = chanel;
+		cmd2Params.clinic = props.clinic
+		if (chanel == 0) {
+			cmd2Params.mode = channelAHasDamos.value ? 1 : 0;
+			cmd2Params.runState = channelAIsRunning.value ? 1 : 0;
+		} else {
+			cmd2Params.mode = channelBHasDamos.value ? 1 : 0;
+			cmd2Params.runState = channelBIsRunning.value ? 1 : 0;
+		}
+		cmd2Params.power = intensity.value;
+		cmd2Params.freq = frequency.value * 10;
+		if (time.unit == 'Min') {
+			// 1. 取整数分钟
+			const mins = Math.floor(time.value);
+			// 2. 计算小数部分对应的秒数
+			const seconds = Math.round((time.value - mins) * 60);
+			cmd2Params.timeMin = mins;
+			cmd2Params.timeSec = seconds;
+		} else if (time.unit == 'Min1') {
+			// 1. 取整数分钟
+			const mins = Math.floor(time.value / 60);
+			// 2. 计算小数部分对应的秒数
+			const seconds = Math.round(time.value - mins * 60);
+			cmd2Params.timeMin = mins;
+			cmd2Params.timeSec = seconds;
+		}
+		uni.$emit(SEND_CMD2, cmd2Params.toJSON());
+		if (canntUpdateNowTimer.value > 0) {
+			clearTimeout(canntUpdateNowTimer.value);
+		}
+		canntUpdateNowTimer.value = setTimeout(() => {
+			canntUpdateNow.value = false;
+		}, canntUpdateNowTimeout);
+	};
 	
+	const sendedCmd3 = () => {
+		uni.$emit(SEND_CMD3, 0);
+		setTimeout(() => {
+			uni.$emit(SEND_CMD3, 1);
+		}, 100);
+	};
+
 	// ============== A通道事件处理 ==============
 	const handleChannelAParamClick = (param : ParamItem) => {
+		if (isWorking.value) return;
+		isWorking.value = true;
 		configItem.value = param;
 		configMode.value = 'A';
 		paramConfigVisible.value = true;
 	};
-	
+
 	// ============== A通道事件处理 ==============
 	const handleChannelAParamSelect = (param : ParamItem) => {
 		// 遍历原数组，原地修改，不改变引用地址
@@ -75,28 +148,13 @@
 			p.isActive = (p.title == param.title);
 		}
 	};
-	
-	//计算并更新能量值
-	const calcAndUpdateEnergy = (intensity: ParamItem, frequency: ParamItem, energy: ParamItem, channel: string) => {
-		
-		if ((channel == 'A' && channelAHasDamos.value) || (channel == 'B' && channelBHasDamos.value)) {
-			//阻尼震荡模式的计算方式
-			//0.0001878×工作强度×工作强度+0.07865×工作强度+0.3275 的结果再乘以工作频率÷10
-			energy.value = (0.0001878*intensity.value*intensity.value+0.07865*intensity.value+0.3275)*frequency.value/10
-		} else {
-			//普通模式的计算方式
-			//0.0001514×工作强度×工作强度+0.1092×工作强度×工作强度+2.299再乘以工作频率÷10
-			energy.value = (0.0001514*intensity.value*intensity.value+0.1092*intensity.value+2.299)*frequency.value/10
-		}
-	}
-	
+
 	// 完成后或停止后，还原数据
-	const restoreDataAfterFinish = (itemE: Ref<StartBeforeItem>, itemS: Ref<Array<ParamItem>>) => {
+	const restoreDataAfterFinish = (itemE : Ref<StartBeforeItem>, itemS : Ref<Array<ParamItem>>) => {
 		const intensity = itemS.value[0];
 		const frequency = itemS.value[1];
 		const time = itemS.value[2];
-		const energy = itemS.value[3];
-		
+
 		intensity.value = itemE.value.intensity;
 		frequency.value = itemE.value.frequency;
 		time.value = itemE.value.timeMinutes;
@@ -104,20 +162,17 @@
 		time.step = itemE.value.timeStep;
 		time.min = itemE.value.timeMin;
 		time.unit = itemE.value.timeUnit;
-		
-		energy.value = 0;
-				
+
 		//销毁定时
 		clearInterval(itemE.value.intervalHandle);
 	}
-	
+
 	// 记录启动前数据
-	const backupDataBeforeStart = (itemE: Ref<StartBeforeItem>, itemS: Ref<Array<ParamItem>>, channel: string) =>  {
+	const backupDataBeforeStart = (itemE : Ref<StartBeforeItem>, itemS : Ref<Array<ParamItem>>, channel : string) => {
 		const intensity = itemS.value[0];
 		const frequency = itemS.value[1];
 		const time = itemS.value[2];
-		const energy = itemS.value[3];
-		
+
 		itemE.value.intensity = intensity.value;
 		itemE.value.frequency = frequency.value;
 		itemE.value.timeMinutes = time.value;
@@ -125,7 +180,7 @@
 		itemE.value.timeMin = time.min;
 		itemE.value.timeStep = time.step;
 		itemE.value.timeUnit = time.unit;
-		
+
 		// 根据分钟数计算剩余秒数
 		let remainSec = time.value * 60;
 		//按照秒数进度重新指定最大值，完成后再复位
@@ -134,7 +189,7 @@
 		time.step = 1;
 		time.min = 0;
 		time.unit = 'Min1';
-		
+
 		//启动计时器计时, 1秒一次
 		itemE.value.intervalHandle = setInterval(() => {
 			remainSec--;
@@ -142,8 +197,6 @@
 			if (remainSec > 0) {
 				// 继续算时间
 				time.value = remainSec;
-				// 更新能量值
-				calcAndUpdateEnergy(intensity, frequency, energy, channel);
 			} else {
 				// 已经完成
 				if (channel == 'A') {
@@ -155,26 +208,39 @@
 				}
 				restoreDataAfterFinish(itemE, itemS);
 			}
+
+			// 仪器操作的停止
+			if (channel == 'A' && !channelAIsRunning.value && itemE.value.intervalHandle > 0) {
+				clearInterval(itemE.value.intervalHandle);
+				itemE.value.intervalHandle = 0;
+			} else if (channel == 'B' && !channelBIsRunning.value && itemE.value.intervalHandle > 0) {
+				clearInterval(itemE.value.intervalHandle);
+				itemE.value.intervalHandle = 0;
+			}
 		}, 1000)
 	}
-	
+
 	const handleChannelAStart = () => {
 		channelAIsRunning.value = true;
 		backupDataBeforeStart(startBeforeItemA, channelAParams, 'A');
+		sendedCmd2(0);
 	};
-	
+
 	const handleChannelAStop = () => {
 		channelAIsRunning.value = false;
 		restoreDataAfterFinish(startBeforeItemA, channelAParams);
+		sendedCmd2(0);
 	};
-	
+
 	// ============== B通道事件处理 ==============
 	const handleChannelBParamClick = (param : ParamItem) => {
+		if (isWorking.value) return;
+		isWorking.value = true;
 		configItem.value = param;
 		configMode.value = 'B';
 		paramConfigVisible.value = true;
 	};
-	
+
 	// ============== B通道事件处理 ==============
 	const handleChannelBParamSelect = (param : ParamItem) => {
 		// 遍历原数组，原地修改，不改变引用地址
@@ -184,25 +250,38 @@
 			p.isActive = (p.title == param.title);
 		}
 	};
-	
+
 	const handleChannelBStart = () => {
 		channelBIsRunning.value = true;
 		backupDataBeforeStart(startBeforeItemB, channelBParams, 'B');
+		sendedCmd2(1);
 	};
-	
+
 	const handleChannelBStop = () => {
 		channelBIsRunning.value = false;
 		restoreDataAfterFinish(startBeforeItemB, channelBParams);
+		sendedCmd2(1);
 	};
-	
+
 	const handleParamConfigClose = () => {
+		isWorking.value = false;
 		paramConfigVisible.value = false;
+		if (configMode.value == 'A') {
+			sendedCmd2(0);
+		} else if (configMode.value == 'B') {
+			sendedCmd2(1);
+		}
 	};
-	
+
 	const handleConfigChange = (param : ParamItem, val : number) => {
 		param.value = val;
+		if (configMode.value == 'A') {
+			sendedCmd2(0);
+		} else if (configMode.value == 'B') {
+			sendedCmd2(1);
+		}
 	}
-	
+
 	const handleChannelADamos = (val : boolean) => {
 		channelAHasDamos.value = val;
 		// 遍历原数组，找到强度和频率
@@ -225,8 +304,9 @@
 				}
 			}
 		}
+		sendedCmd2(0);
 	};
-	
+
 	const handleChannelBDamos = (val : boolean) => {
 		channelBHasDamos.value = val;
 		// 遍历原数组，找到强度和频率
@@ -249,8 +329,9 @@
 				}
 			}
 		}
+		sendedCmd2(1);
 	};
-	
+
 	const handleMsgClose = (mode : string) => {
 		if (mode == 'A') {
 			infoMsgVisibleA.value = false;
@@ -258,16 +339,101 @@
 			infoMsgVisibleB.value = false;
 		}
 	}
+
+	//===================== 蓝牙事件监听 =====================
+	const setChannelData = (data : UTSJSONObject, itemS : Ref<Array<ParamItem>>) => {
+		const intensity = itemS.value[0];
+		const frequency = itemS.value[1];
+		const time = itemS.value[2];
+		const energy = itemS.value[3];
+		const channel = data.getNumber('channel', 0);
+		if (channel == 0) {
+			time.unit = channelAIsRunning.value ? 'Min1' : 'Min';
+		}
+		if (channel == 1) {
+			time.unit = channelBIsRunning.value ? 'Min1' : 'Min';
+		}
+		intensity.value = data.getNumber('power', 1);
+		frequency.value = data.getNumber('freq', 5) / 10;
+		energy.value = data.getNumber('energy', 0);
+		if (time.unit == 'Min1') {
+			// 转换成秒数和
+			time.value = data.getNumber('timeMin', 0) * 60 + data.getNumber('timeSec', 0);
+		} else {
+			// 转换成带小数的分钟数
+			time.value = data.getNumber('timeMin', 60) + data.getNumber('timeSec', 0) / 60;
+		}
+	}
+	const fromCmd3Resp = (data : UTSJSONObject) => {
+		const channel = data.getNumber('channel', 0);
+
+		if (channel == 0) {
+			channelAIsRunning.value = data.getNumber('runState', 0) == 1;
+			channelAHasDamos.value = data.getNumber('mode', 0) == 1;
+			setChannelData(data, channelAParams);
+		} else if (channel == 1) {
+			channelBIsRunning.value = data.getNumber('runState', 0) == 1;
+			channelBHasDamos.value = data.getNumber('mode', 0) == 1;
+			setChannelData(data, channelBParams);
+		}
+	}
+
+	// 连接成功后，如果已经启动，则定时收信息，否则定时发送信息
+	const intervalHandle = ref<number>(0);
+
+	// 最后启动蓝牙自动连接
+	bluetooth.initBluetoothListener();
+	bluetooth.initAutoFlow();
+
+	onMounted(() => {
+		// 监听接受到的数据信息
+		uni.$on(RECV_CMD2, (data : boolean) => {
+			console.log('下发状态：' + data);
+		});
+
+		uni.$on(RECV_CMD3, (data : UTSJSONObject) => {
+			//console.log('查询参数：' + JSON.stringify(data));
+			if (isWorking.value || canntUpdateNow.value) return;
+			isWorking.value = true;
+			try {
+				fromCmd3Resp(data);
+			} finally {
+				isWorking.value = false;
+			}
+		});
+
+		uni.$on(BLE_CONNECTED, (isOn : boolean) => {
+			console.log('连接状态：' + isOn);
+			if (isOn) {
+				console.log('连接成功');
+				sendedCmd3();
+			} else {
+				clearInterval(intervalHandle.value);
+				intervalHandle.value = 0;
+			}
+		});
+	});
+
+	onUnmounted(() => {
+		clearInterval(startBeforeItemA.value.intervalHandle);
+		clearInterval(startBeforeItemB.value.intervalHandle);
+		uni.$off(RECV_CMD2);
+		uni.$off(RECV_CMD3);
+		uni.$off(BLE_CONNECTED);
+		bluetooth.destroyBluetooth();
+	});
 </script>
 
 <style scoped>
 	.control-page {
-		width: 100%;
-		background: #000;
-		display: flex;
-		flex-direction: row;
-		justify-content: space-around;
-		padding: 10rpx 20rpx;
-		box-sizing: border-box;
+	    width: 100%;
+	    background: #000;
+	    flex: 1;
+	    display: flex;
+	    flex-direction: row;
+	    align-items: stretch;
+	    justify-content: space-between; /* 左右分开，中间自动出现间距 */
+	    /* padding: 10rpx 20rpx; */
+	    box-sizing: border-box;
 	}
 </style>

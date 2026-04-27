@@ -1,0 +1,444 @@
+import { ref } from "vue";
+import * as ble from '@/uni_modules/xl-ble';
+import { 
+	M1BleCmd, 
+	M1Cmd2SetParamsReq, 
+	M1BleProtocol,
+	M1Cmd1DeviceInfoResp,
+	M1Cmd3ParamsResp
+} from '@/utils/m1BleProtocol.uts';
+
+/**
+ * M1设备 蓝牙事件常量
+ * 通信解耦、全局事件派发订阅
+ */
+// 主动发送 - 查询设备信息指令
+export const M1_SEND_CMD1 : string = "M1_SEND_CMD1";
+// 主动发送 - 下发控制参数指令
+export const M1_SEND_CMD2 : string = "M1_SEND_CMD2";
+// 主动发送 - 查询设备当前参数指令
+export const M1_SEND_CMD3 : string = "M1_SEND_CMD3";
+
+// 被动接收 - 设备信息返回
+export const M1_RECV_CMD1 : string = "M1_RECV_CMD1";
+// 被动接收 - 参数下发应答ACK
+export const M1_RECV_CMD2 : string = "M1_RECV_CMD2";
+// 被动接收 - 设备运行参数返回
+export const M1_RECV_CMD3 : string = "M1_RECV_CMD3";
+
+// 设备蓝牙连接状态事件
+export const M1_BLE_CONNECTED : string = "M1_BLE_CONNECTED";
+
+/**
+ * M1 蓝牙会话管理类
+ * 适配M1仪器BLE蓝牙协议、500ms轮询、一问一答主从通信
+ */
+export class M1BluetoothSession {
+	// 目标设备MAC/设备ID
+	private targetDeviceId : string;
+
+	// M1蓝牙服务特征值UUID
+	private readonly serviceUuid : string = "0000ff00-0000-1000-8000-00805f9b34fb";
+	private readonly writeUuid : string = "0000ff02-0000-1000-8000-00805f9b34fb";
+	private readonly notifyUuid : string = "0000ff01-0000-1000-8000-00805f9b34fb";
+
+	// 连接超时定时器
+	private connectTimeoutId : number | null = null;
+	// 自动流程轮询定时器
+	private autoFlowIntervalId : number | null = null;
+
+	// 数据轮询定时器
+	private pollTimer = ref(0);
+	// 蓝牙读写互斥锁：防止指令并发冲突
+	private bleBusy = ref(false);
+
+	// 蓝牙开关状态
+	bleEnabled = ref(false);
+	// 扫描中状态
+	scanning = ref(false);
+	// 当前连接设备ID
+	deviceId = ref("");
+	// 设备连接状态
+	isConnected = ref(false);
+	// 日志文本
+	logText = ref("M1蓝牙初始化完成...");
+	// 自动连接中标记
+	isAutoConnecting = ref(false);
+
+	/**
+	 * 构造函数
+	 * @param targetDeviceId 目标M1设备唯一ID
+	 */
+	constructor(targetDeviceId : string) {
+		this.targetDeviceId = targetDeviceId;
+	}
+
+	/**
+	 * 追加日志信息
+	 * @param text 日志内容
+	 */
+	addLog(text : string) : void {
+		const time = new Date().toLocaleTimeString();
+		const log = `[${time}] M1 → ${text}`;
+		this.logText.value = log + "\n" + this.logText.value;
+		console.log(log);
+	}
+
+	/**
+	 * 清除连接超时计时器
+	 */
+	clearConnectTimeout() : void {
+		const timeoutId = this.connectTimeoutId;
+		if (timeoutId != null) {
+			clearTimeout(timeoutId);
+			this.connectTimeoutId = null;
+		}
+	}
+
+	/**
+	 * 启动M1设备参数自动轮询
+	 * 协议要求：主机500ms查询一次从机
+	 */
+	startPolling() {
+		this.stopPolling();
+		this.pollTimer.value = setInterval(() => {
+			// 未连接 / 蓝牙忙碌 直接跳过
+			if (!this.isConnected.value || this.bleBusy.value) return;
+
+			this.bleBusy.value = true;
+			// M1设备仅单通道，固定通道0查询
+			setTimeout(() => {
+				this.readM1DeviceParam(0);
+				setTimeout(() => {
+					this.bleBusy.value = false;
+				}, 100);
+			}, 150);
+		}, 500);
+		this.addLog("🔄 已启动M1参数轮询同步(500ms)");
+	}
+
+	/**
+	 * 停止参数轮询
+	 */
+	stopPolling() {
+		if (this.pollTimer.value != 0) {
+			clearInterval(this.pollTimer.value);
+			this.pollTimer.value = 0;
+		}
+	}
+
+	/**
+	 * 查询M1设备参数
+	 * @param channel 通道号 M1固定0
+	 */
+	readM1DeviceParam(channel: number = 0) {
+		const cmd = M1BleProtocol.m1Cmd3SendQueryParams(channel);
+		ble.writeBytes(cmd);
+		this.addLog(`轮询查询M1通道${channel}`);
+	}
+
+	/**
+	 * 开始扫描M1目标蓝牙设备
+	 */
+	startScan() : void {
+		if (!this.bleEnabled.value) {
+			uni.showToast({ title: "请先开启蓝牙", icon: "none" });
+			return;
+		}
+
+		this.scanning.value = true;
+		this.deviceId.value = "";
+		this.addLog("开始扫描M1设备...");
+
+		// 启动蓝牙扫描
+		ble.startScan((device) => {
+			// 匹配目标设备ID
+			if (device.deviceId == this.targetDeviceId) {
+				this.deviceId.value = device.deviceId;
+				ble.stopScan();
+				this.scanning.value = false;
+				this.addLog(`✅ 找到目标M1设备：${device.name}`);
+
+				// 自动发起连接
+				if (!this.isConnected.value && !this.isAutoConnecting.value) {
+					setTimeout(() => {
+						this.connectDevice();
+					}, 200);
+				}
+			}
+		}, null);
+
+		// 10秒扫描超时自动停止
+		setTimeout(() => {
+			if (this.scanning.value) {
+				ble.stopScan();
+				this.scanning.value = false;
+				this.addLog("⏰ 扫描M1设备超时");
+			}
+		}, 10000);
+	}
+
+	/**
+	 * 连接M1蓝牙设备
+	 */
+	connectDevice() : void {
+		if (this.deviceId.value.length == 0) {
+			uni.showToast({ title: "请先扫描M1设备", icon: "none" });
+			return;
+		}
+
+		this.isAutoConnecting.value = true;
+		this.addLog("正在连接M1设备...");
+		uni.showToast({ title: "连接中", icon: "none" });
+
+		// 发起BLE连接
+		ble.connect(this.deviceId.value, {
+			seviceUuid: this.serviceUuid,
+			writeUuid: this.writeUuid,
+			notifyUuid: this.notifyUuid
+		});
+
+		// 5秒连接超时判断
+		this.clearConnectTimeout();
+		this.connectTimeoutId = setTimeout(() => {
+			if (!this.isConnected.value) {
+				this.addLog("⏰ M1设备连接超时");
+				uni.showToast({ title: "超时未连接", icon: "none" });
+				this.isAutoConnecting.value = false;
+			}
+		}, 5000);
+	}
+
+	/**
+	 * 手动断开M1设备连接
+	 */
+	disconnectDevice() : void {
+		this.clearConnectTimeout();
+		ble.disconnect();
+		this.isConnected.value = false;
+		this.isAutoConnecting.value = false;
+		this.addLog("手动断开M1设备");
+	}
+
+	/**
+	 * 读取M1设备基础信息（版本+累计工作时间）
+	 */
+	readDeviceInfo() : void {
+		const cmd = M1BleProtocol.m1Cmd1SendQueryDeviceInfo();
+		ble.writeBytes(cmd);
+		this.addLog(`已发送M1查询信息指令：${JSON.stringify(cmd)}`);
+	}
+
+	/**
+	 * 发送测试参数至M1设备
+	 * 调试专用
+	 */
+	sendTestParams() : void {
+		if (this.bleBusy.value) return;
+		this.bleBusy.value = true;
+
+		// 组装测试参数
+		const req = new M1Cmd2SetParamsReq();
+		req.mode = 1;            // P模式
+		req.damp = 1;            // 有阻尼
+		req.part = 2;            // 预设部位2
+		req.f1Freq = 100;        // 频率×10
+		req.f1Time = 60;         // 运行秒数
+		req.f2Freq = 0;
+		req.f2Time = 0;
+		req.f3Freq = 0;
+		req.f3Time = 0;
+		req.power = 50;          // 强度50%
+		req.timeMin = 1;
+		req.timeSec = 0;
+		req.runState = 1;        // 启动设备
+
+		// 组包发送
+		const cmd = M1BleProtocol.m1Cmd2SendSetParams(req);
+		ble.writeBytes(cmd);
+		this.addLog(`已发送M1测试参数：${JSON.stringify(cmd)}`);
+
+		// 延时释放蓝牙锁
+		setTimeout(() => {
+			this.bleBusy.value = false;
+		}, 200);
+	}
+
+	/**
+	 * 初始化自动扫描流程
+	 * 蓝牙开启后自动扫描目标设备
+	 */
+	initAutoFlow() : void {
+		this.addLog("当前M1设备ID: " + this.targetDeviceId);
+		const currentIntervalId = this.autoFlowIntervalId;
+		if (currentIntervalId != null) {
+			clearInterval(currentIntervalId);
+			this.autoFlowIntervalId = null;
+		}
+
+		// 轮询检测蓝牙状态，自动扫描
+		this.autoFlowIntervalId = setInterval(() => {
+			if (this.bleEnabled.value) {
+				const intervalId = this.autoFlowIntervalId;
+				if (intervalId != null) {
+					clearInterval(intervalId);
+					this.autoFlowIntervalId = null;
+				}
+				setTimeout(() => {
+					if (!this.scanning.value && this.deviceId.value.length == 0) {
+						this.startScan();
+					}
+				}, 80);
+			}
+		}, 50);
+
+		// 10秒后自动关闭自动流程
+		setTimeout(() => {
+			const intervalId = this.autoFlowIntervalId;
+			if (intervalId != null) {
+				clearInterval(intervalId);
+				this.autoFlowIntervalId = null;
+			}
+		}, 10000);
+	}
+
+	/**
+	 * 初始化所有蓝牙监听事件
+	 * 数据接收、发送结果、连接状态、全局指令订阅
+	 */
+	initBluetoothListener() : void {
+		// 监听设备蓝牙上报数据
+		ble.onDataReceived((data : number[]) => {
+			this.addLog(`收到M1原始数据：${JSON.stringify(data)}`);
+			if(data.length < 3) return;
+			
+			// 截取指令码
+			const cmd = data[2];
+			// 指令1：设备信息应答
+			if (cmd == M1BleCmd.M1_CMD1_QUERY_DEVICE_INFO) {
+				const info = M1BleProtocol.m1Cmd1ParseDeviceInfo(data);
+				uni.$emit(M1_RECV_CMD1, info?.toJSON());
+				this.addLog(`M1设备信息：${JSON.stringify(info?.toJSON())}`);
+			} 
+			// 指令2：参数下发应答
+			else if (cmd == M1BleCmd.M1_CMD2_SET_PARAMS) {
+				const ack = M1BleProtocol.m1Cmd2ParseSetAck(data);
+				uni.$emit(M1_RECV_CMD2, ack);
+				this.addLog(`M1参数下发应答：${ack}`);
+			} 
+			// 指令3：设备参数应答
+			else if (cmd == M1BleCmd.M1_CMD3_QUERY_PARAMS) {
+				const params = M1BleProtocol.m1Cmd3ParseParams(data);
+				uni.$emit(M1_RECV_CMD3, params?.toJSON());
+				this.addLog(`M1运行参数：${JSON.stringify(params?.toJSON())}`);
+			} 
+			// 未知指令
+			else {
+				this.addLog(`M1未知命令：${JSON.stringify(data)}`);
+			}
+		});
+
+		// 监听蓝牙写入完成回调
+		ble.onWriteComplete((ok : boolean) => {
+			this.addLog(`M1数据发送：${ok ? "成功" : "失败"}`);
+		});
+
+		// 监听系统蓝牙开关状态
+		ble.onBluetoothStatusChanged((isOn : boolean) => {
+			this.bleEnabled.value = isOn;
+			this.addLog(`蓝牙${isOn ? "已开启" : "已关闭"}`);
+			if (!isOn) {
+				this.disconnectDevice();
+			}
+		});
+
+		// 监听设备连接/断开状态
+		ble.onConnectionStateChange((res) => {
+			if (res.state == "connected") {
+				uni.$emit(M1_BLE_CONNECTED, true);
+				this.clearConnectTimeout();
+				this.isConnected.value = true;
+				this.isAutoConnecting.value = false;
+				this.addLog("✅ M1设备连接成功");
+				// 连接成功自动启动500ms轮询
+				//this.startPolling();
+			} else {
+				uni.$emit(M1_BLE_CONNECTED, false);
+				this.clearConnectTimeout();
+				this.isConnected.value = false;
+				this.isAutoConnecting.value = false;
+				this.addLog("❌ M1设备已断开/连接失败");
+				// 断开停止轮询
+				//this.stopPolling();
+			}
+		});
+		
+		// 全局事件：触发查询设备信息
+		uni.$on(M1_SEND_CMD1, () => {
+			const cmd = M1BleProtocol.m1Cmd1SendQueryDeviceInfo();
+			ble.writeBytes(cmd);
+			this.addLog(`已发送M1查询指令：${JSON.stringify(cmd)}`);
+		});
+
+		// 全局事件：触发下发自定义参数
+		uni.$on(M1_SEND_CMD2, (params : UTSJSONObject) => {
+			console.log("M1收到下发参数：", params);
+			if (this.bleBusy.value) return;
+			this.bleBusy.value = true;
+
+			// 反序列化参数并发送
+			const req = new M1Cmd2SetParamsReq()
+			req.fromJSON(params);
+			const cmd = M1BleProtocol.m1Cmd2SendSetParams(req);
+			ble.writeBytes(cmd);
+			this.addLog(`已发送M1参数：${JSON.stringify(cmd)}`);
+
+			setTimeout(() => {
+				this.bleBusy.value = false;
+			}, 200);
+		});
+		
+		// 全局事件：触发查询设备参数
+		uni.$on(M1_SEND_CMD3, (channel : number) => {
+			const realChannel = channel ?? 0; // 在这里赋默认值，不在参数里写
+				const cmd = M1BleProtocol.m1Cmd3SendQueryParams(realChannel);
+				ble.writeBytes(cmd);
+				this.addLog(`已发送M1查询参数指令：${JSON.stringify(cmd)}`);
+		});
+	}
+
+	/**
+	 * 销毁释放所有蓝牙资源
+	 * 页面销毁/退出页面调用
+	 */
+	destroyBluetooth() : void {
+		// 清除定时器
+		this.clearConnectTimeout();
+		const intervalId = this.autoFlowIntervalId;
+		if (intervalId != null) {
+			clearInterval(intervalId);
+			this.autoFlowIntervalId = null;
+		}
+		// 停止轮询、扫描、断开连接
+		this.stopPolling();
+		ble.stopScan();
+		ble.disconnect();
+		this.isAutoConnecting.value = false;
+		
+		// 移除全局事件监听，防止内存泄漏
+		uni.$off(M1_SEND_CMD1);
+		uni.$off(M1_SEND_CMD2);
+		uni.$off(M1_SEND_CMD3);
+		
+		this.addLog("已释放M1蓝牙资源");
+	}
+}
+
+/**
+ * 快速创建M1蓝牙实例
+ * @param targetDeviceId 目标设备ID
+ * @returns M1BluetoothSession 实例
+ */
+export function useM1Bluetooth(targetDeviceId : string) : M1BluetoothSession {
+	return new M1BluetoothSession(targetDeviceId);
+}

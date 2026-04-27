@@ -1,12 +1,24 @@
 <template>
 	<scroll-view class="container">
-		<duo-user></duo-user>
+		<duo-user :device-id="deviceId" :clinic="clinic"></duo-user>
 	</scroll-view>
 </template>
 
 <script setup lang="uts">
 	import { ref, onMounted, onUnmounted } from 'vue'
 	import { playClickSound } from '@/utils/common.uts';
+	import { globalData } from '@/utils/object.uts';
+	
+	const props = defineProps({
+		deviceId: {
+			type: String,
+			default: globalData.deviceId,
+		},
+		clinic: {
+			type: Number,
+			default: globalData.clinic,
+		},
+	})
 	
 	onReady(() => {
 		// 全局广播事件，让子组件的画布可以正常工作

@@ -146,13 +146,13 @@ export function intiStartBeforeItem(
 ): StartBeforeItem {
 	// 默认缺省值
 	const defaults: StartBeforeItem = {
-		intensity: 0,
-		frequency: 0,
+		intensity: 100,
+		frequency: 10,
 		timeMinutes: 10,
-		timeMax: 10,
-		timeMin: 10,
-		timeStep: 10,
-		timeUnit: '',
+		timeMax: 60,
+		timeMin: 5,
+		timeStep: 5,
+		timeUnit: 'Min',
 		intervalHandle: 0,
 	};
 	

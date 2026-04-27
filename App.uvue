@@ -1,4 +1,5 @@
 <script setup lang="uts">
+	import { globalData } from '@/utils/object.uts';
 	// #ifdef APP-ANDROID || APP-HARMONY
 	let firstBackTime = 0
 	// #endif
@@ -18,6 +19,7 @@
 
 	//监听播放声音事件
 	uni.$on('play-click-sound', () => {
+		if (!globalData.playSound) return;
 		audio.seek(0)
 		audio.play()
 	})

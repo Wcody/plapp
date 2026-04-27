@@ -51,3 +51,37 @@ export const formatTimeMin1 = (secs: number): string => {
 	
 	return `${formatMins}:${formatSecs}`;
 };
+
+/**
+ * 格式化数值为带单位的字符串（例如 1000 -> 1.0K）
+ * @param value 数值
+ * @returns 格式化后的字符串
+ */
+export const formatKGS = (value: number): string => {
+	const absValue = Math.abs(value);
+	if (absValue < 10000) {
+		return value.toFixed(1).toString();
+	} else if (absValue >= 10000) {
+		return value.toFixed(0).toString();
+	} else {
+		return '0';
+	}
+}
+
+/**
+ * 12位连续十六进制串 → 蓝牙标准大写MAC地址 XX:XX:XX:XX:XX:XX
+ * @param macStr 原始串: b4c2e0f3db94
+ * @returns 格式化大写MAC
+ */
+export const = formatUpperMac = (macStr: string): string => {
+  // 过滤非法字符、转大写
+  const clean = macStr.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+  
+  // 校验必须是12位
+  if (clean.length != 12) {
+    return '';
+  }
+
+  // 每2位拼接冒号
+  return clean.match(/.{2}/g)?.join(':') ?? '';
+}

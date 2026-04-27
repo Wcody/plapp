@@ -1,16 +1,25 @@
 <template>
 	<scroll-view class="container">
-		<duo-pro></duo-pro>
+		<duo-pro :device-id="deviceId" :clinic="clinic"></duo-pro>
 	</scroll-view>
 </template>
 
 <script setup lang="uts">
 	import { ref, onMounted, onUnmounted } from 'vue'
 	import { playClickSound } from '@/utils/common.uts';
+	import { globalData } from '@/utils/object.uts';
 	
-	onReady(() => {
-		// 全局广播事件，让子组件的画布可以正常工作
-		//uni.$emit('duo-page-ready')
+	const app = getApp();
+	
+	const props = defineProps({
+		deviceId: {
+			type: String,
+			default: globalData.deviceId,
+		},
+		clinic: {
+			type: Number,
+			default: globalData.clinic,
+		},
 	})
 </script>
 

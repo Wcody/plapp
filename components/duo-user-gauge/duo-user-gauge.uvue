@@ -17,7 +17,7 @@
 
 	// Props声明，不能直接写字面量，要在uts中定义类型
 	const props = withDefaults(defineProps<ParamProps>(), {
-	  param: () => initParamItem(),
+		param: () => initParamItem(),
 	});
 
 	const emit = defineEmits(['click', 'select'])
@@ -220,31 +220,37 @@
 		ctx.fillText(centerUnit, cx + offsetY * qty, cy + offsetY);
 	}
 
-	uni.$on('duo-page-ready', async () => {
-		await getParentSize();
-
-		uni.createCanvasContextAsync({
-			id: 'gaugeCanvas',
-			component: instance,
-			success: (canvasCtx) => {
-				const ctx2d = canvasCtx.getContext('2d');
-				if (ctx2d == null) return;
-
-				canvasData.ctx2d = ctx2d;
-				canvasData.canvas = ctx2d.canvas;
-				setCanvasSize();
-				draw();
-			}
-		});
-	})
-
 	// 外部元数据地址不能被改变，也就是不能被重新赋值
 	watch(
-	  props.param,
-	  () => {
-	    draw() // 你的方法
-	  },
-	  { deep: true });
+		props.param,
+		() => {
+			draw() // 你的方法
+		},
+		{ deep: true });
+
+	onMounted(() => {
+		uni.$on('duo-page-ready', async () => {
+			await getParentSize();
+
+			uni.createCanvasContextAsync({
+				id: 'gaugeCanvas',
+				component: instance,
+				success: (canvasCtx) => {
+					const ctx2d = canvasCtx.getContext('2d');
+					if (ctx2d == null) return;
+
+					canvasData.ctx2d = ctx2d;
+					canvasData.canvas = ctx2d.canvas;
+					setCanvasSize();
+					draw();
+				}
+			});
+		})
+	});
+
+	onUnmounted(() => {
+		uni.$off('duo-page-ready');
+	});
 </script>
 
 <style scoped>

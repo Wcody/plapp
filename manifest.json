@@ -2,8 +2,8 @@
 	"name": "PL-APP",
 	"appid": "__UNI__361969B",
 	"description": "PL系列控制端",
-	"versionName": "1.0.3",
-	"versionCode": "103",
+	"versionName": "1.0.8",
+	"versionCode": "108",
 	"uni-app-x": {},
 	/* 快应用特有相关 */
 	"quickapp": {},

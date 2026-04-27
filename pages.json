@@ -1,35 +1,41 @@
 {
 	"pages": [
-		// {
-		// 	"path": "pages/index/index",
-		// 	"style": {
-		// 		"navigationBarTitleText": "PL-APP"
-		// 	}
-		// },
-		// {
-		// 	"path": "pages/m1/m1",
-		// 	"style": {
-		// 		"navigationBarTitleText": ""
-		// 	}
-		// },
-		// {
-		// 	"path": "pages/duo/duo",
-		// 	"style": {
-		// 		"navigationBarTitleText": ""
-		// 	}
-		// },
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "PL-APP"
+			}
+		},
+		{
+			"path": "pages/m1/m1",
+			"style": {
+				"navigationBarTitleText": ""
+			}
+		},
+		{
+			"path": "pages/duo/duo",
+			"style": {
+				"navigationBarTitleText": ""
+			}
+		},
 		{
 			"path": "pages/duo/user",
 			"style": {
 				"navigationBarTitleText": ""
 			}
+		},
+		{
+			"path": "pages/log/log",
+			"style": {
+				"navigationBarTitleText": "调试面板"
+			}
+		},
+		{
+			"path": "pages/log/logM1",
+			"style": {
+				"navigationBarTitleText": "M1调试"
+			}
 		}
-		// {
-		// 	"path": "pages/test/test",
-		// 	"style": {
-		// 		"navigationBarTitleText": "BLE-TEST"
-		// 	}
-		// }
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",

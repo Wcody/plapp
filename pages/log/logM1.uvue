@@ -1,0 +1,212 @@
+<template>
+	<!-- 页面根布局：全屏 flex 纵向 -->
+	<view class="page-wrapper">
+		<view class="container">
+			<!-- 操作按钮 -->
+			<view class="btn-group">
+				<!-- 一行三列：扫描、连接、断开 -->
+				<view class="btn-row">
+					<button class="btn" @click="startScan">1. 扫描M1</button>
+					<button class="btn" :class="deviceId.length == 0 ? 'btn-disabled' : ''"
+						:disabled="deviceId.length == 0" @click="connectDevice">2. 连接M1</button>
+					<button class="btn" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+						@click="disconnectDevice">3. 断开M1</button>
+				</view>
+
+				<!-- 竖排按钮 -->
+				<button class="btn" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="readDeviceInfo">4. 查询M1信息(CMD1)</button>
+				<button class="btn" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="sendTestParams">5. 下发M1参数(CMD2)</button>
+				<button class="btn" :class="!isConnected ? 'btn-disabled' : ''" :disabled="!isConnected"
+					@click="readDeviceParam">6. 查询M1参数(CMD3)</button>
+			</view>
+
+			<!-- 状态展示 -->
+			<view class="info-card">
+				<text class="card-title">M1 蓝牙状态</text>
+				<text class="text">蓝牙适配器：{{ bleEnabled ? '✅ 已开启' : '❌ 未开启' }}</text>
+				<text class="text">扫描状态：{{ scanning ? '🔍 扫描中...' : '停止扫描' }}</text>
+				<text class="text">设备ID：{{ deviceId.length > 0 ? deviceId : '未获取' }}</text>
+				<text class="text">连接状态：{{ isConnected ? '✅ 已连接' : '❌ 未连接' }}</text>
+			</view>
+
+			<!-- 数据日志：独立可滚动区域 + flex:1 -->
+			<view class="log-card">
+				<text class="card-title">M1 接收数据日志</text>
+				<scroll-view class="log-scroll">
+					<text class="log-content">{{ logText }}</text>
+				</scroll-view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script lang="uts" setup>
+import { onMounted, onUnmounted } from "vue";
+import { useM1Bluetooth } from '@/utils/useM1BleProtocol.uts';
+
+// 默认属性
+const props = defineProps({
+	deviceId: { type: String, default: 'B4:C2:E0:F3:DB:94' },
+	showBtns: { type: Boolean, default: true },
+	maxLines: { type: Number, default: 10 },
+});
+
+// =============== M1 设备ID ===============
+const CURRENT_DEVICE_ID = props.deviceId;
+const bluetooth = useM1Bluetooth(CURRENT_DEVICE_ID);
+
+// 导出状态
+const bleEnabled = bluetooth.bleEnabled;
+const scanning = bluetooth.scanning;
+const deviceId = bluetooth.deviceId;
+const isConnected = bluetooth.isConnected;
+const logText = bluetooth.logText;
+
+// 按钮方法
+function startScan() {
+	bluetooth.startScan();
+}
+
+function connectDevice() {
+	bluetooth.connectDevice();
+}
+
+function disconnectDevice() {
+	bluetooth.disconnectDevice();
+}
+
+// 查询M1设备信息 CMD1
+function readDeviceInfo() {
+	bluetooth.readDeviceInfo();
+}
+
+// 下发M1测试参数 CMD2
+function sendTestParams() {
+	bluetooth.sendTestParams();
+}
+
+// 查询M1运行参数 CMD3
+function readDeviceParam() {
+	bluetooth.readM1DeviceParam(0);
+}
+
+// 初始化监听
+bluetooth.initBluetoothListener();
+bluetooth.initAutoFlow();
+
+onMounted(() => {
+	
+});
+
+onUnmounted(() => {
+	bluetooth.destroyBluetooth();
+});
+</script>
+
+<style scoped>
+/* 根布局：全屏黑色 + 纵向 flex */
+.page-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	background-color: #121212;
+}
+
+.container {
+	background-color: #121212;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	padding: 20rpx;
+}
+
+/* ========== 按钮区域：兼容写法，无警告无报错 ========== */
+.btn-group {
+	display: flex;
+	flex-direction: column;
+	margin-bottom: 24rpx;
+}
+.btn-group > .btn-row,
+.btn-group > .btn {
+	margin-bottom: 16rpx;
+}
+.btn-group > :last-child {
+	margin-bottom: 0;
+}
+
+/* 三列按钮行 */
+.btn-row {
+	display: flex;
+	flex-direction: row;
+}
+.btn-row .btn {
+	margin-right: 16rpx;
+}
+.btn-row :last-child {
+	margin-right: 0;
+}
+
+/* 按钮通用样式 */
+.btn {
+	flex: 1;
+	height: 88rpx;
+	background-color: #007aff;
+	color: #ffffff;
+	border-radius: 12rpx;
+	font-size: 28rpx;
+	border: none;
+}
+
+/* 禁用按钮 */
+.btn-disabled {
+	background-color: #333 !important;
+	color: #666 !important;
+}
+
+/* 卡片通用 */
+.info-card,
+.log-card {
+	background-color: #1e1e1e;
+	border-radius: 16rpx;
+	padding: 24rpx;
+	margin-bottom: 24rpx;
+	border: 1rpx solid #333;
+}
+
+/* 日志卡片 */
+.log-card {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 300rpx;
+}
+
+.card-title {
+	font-size: 36rpx;
+	font-weight: bold;
+	margin-bottom: 16rpx;
+	color: #ffffff;
+}
+
+.text {
+	font-size: 28rpx;
+	color: #cccccc;
+	line-height: 1.6;
+}
+
+/* 日志滚动 */
+.log-scroll {
+	flex: 1;
+	width: 100%;
+}
+
+/* 日志内容 */
+.log-content {
+	font-size: 24rpx;
+	color: #e0e0e0;
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+</style>

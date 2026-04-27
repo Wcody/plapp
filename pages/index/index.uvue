@@ -1,5 +1,11 @@
 <template>
 	<view class="container">
+		<!-- 右上角喇叭声音开关 -->
+		<view class="sound-switch" @click="toggleSound">
+			<text v-if="globalData.playSound" class="sound-icon">🔊</text>
+			<text v-else class="sound-icon">🔇</text>
+		</view>
+
 		<image class="logo" src="/static/logo.png"></image>
 		<text class="title">{{ title }}</text>
 
@@ -7,6 +13,7 @@
 			<button class="custom-btn" @click="customSelect(1)">PL-M1</button>
 			<button class="custom-btn" @click="customSelect(2)">PL-DUO-USER</button>
 			<button class="custom-btn" @click="customSelect(3)">PL-DUO-PRO</button>
+			<button class="custom-btn" @click="showLog()">ShowLog</button>
 		</view>
 		<!-- 底部居中扫一扫按钮 -->
 		<view class="scan-box">
@@ -16,122 +23,187 @@
 </template>
 
 <script setup lang="uts">
-import { ref } from 'vue'
+	import { ref } from 'vue';
+	import { formatUpperMac } from '@/utils/common.uts';
+	import { globalData } from '@/utils/object.uts';
 
-const title = ref('Welcome to use PL-APP!')
+	const title = ref('Welcome to use PL-APP!')
 
-const openWinByOperId = (operId: number) => {
-	let url: string = '/pages/index/index';
-	if (operId == 1) {
-		url = '/pages/m1/m1'
-	} else if (operId == 2) {
-		url = '/pages/duo/user'
-	} else if (operId == 3) {
-		url = '/pages/duo/duo'
+	// 声音开关切换
+	const toggleSound = () => {
+		globalData.playSound = !globalData.playSound;
+		// 可选提示
+		// uni.showToast({
+		// 	title: globalData.playSound ? 'Sound ON' : 'Sound OFF',
+		// 	icon: 'none'
+		// })
 	}
-	uni.navigateTo({
-	  url: url,
-	  success(result) {
-	    console.log('navigateTo success', result.errMsg)
-	  },
-	  fail(error) {
-	    console.log('navigateTo fail', error.errMsg)
-	  },
-	  complete(result) {
-	    console.log('navigateTo complete', result.errMsg)
-	  },
-	})
-}
 
-// 扫一扫
-const scanCode = () => {
-	uni.scanCode({
-		success: (res) => {
-			console.log('result:', res.result);
-			const items: string[] = res.result.split(';')
-			console.log('items:', items);
-			if (items.length === 4) {
-				const [type, ui, mac] = items
-				if (type != 'BLE') {
-					uni.showToast({
-						title: 'Invalid QR code type',
-						icon: 'error'
-					})
+	const openWinByOperId = (operId : number) => {
+		let url : string = '/pages/index/index'
+		// UTS 推荐使用 === 严格相等，避免类型装箱警告
+		if (operId == 1) {
+			url = '/pages/m1/m1'
+		} else if (operId == 2) {
+			url = '/pages/duo/user'
+		} else if (operId == 3) {
+			url = '/pages/duo/duo'
+		}
+		uni.navigateTo({
+			url: url,
+			success(result) {
+				console.log('navigateTo success', result.errMsg)
+			},
+			fail(error) {
+				console.log('navigateTo fail', error.errMsg)
+			},
+			complete(result) {
+				console.log('navigateTo complete', result.errMsg)
+			},
+		})
+	}
+
+	// 扫一扫
+	const scanCode = () => {
+		uni.scanCode({
+			success: (res) => {
+				console.log('result:', res.result)
+
+				// ✅ 1. 空值安全判断
+				if (res.result == '' || res.result.length < 1) {
+					uni.showToast({ title: 'QR code content is empty', icon: 'error' })
 					return
 				}
-				if (ui.includes('DUO')) {
-					openWinByOperId(3);
-				} else if (ui.includes('DUOT')) {
-					openWinByOperId(2);
-				} else if (ui.includes('M1')) {
-					openWinByOperId(1);
+
+				// ✅ 2. 分割并自动去空格
+				const items = res.result.split(';').map(item => item.trim())
+				console.log('items:', items)
+
+				// ✅ 3. 正确判断长度（3个字段就判断 ===3）
+				if (items.length == 4 || items.length == 5) {
+					// ✅ 4. 正确解构
+					const [type, ui, mac, emp] = items
+					console.log('type:', type, 'ui:', ui, 'mac:', mac, 'emp', emp)
+
+					const macs = mac.split(':').map(item => item.trim());
+					console.log('macs:', macs);
+
+					if (macs.length == 2) {
+						globalData.deviceId = formatUpperMac(macs[1]);
+						console.log('formatted deviceId:', globalData.deviceId);
+					} else {
+						uni.showToast({ title: 'Invalid MAC format', icon: 'error' });
+						return;
+					}
+
+					// ✅ 5. 大小写不敏感判断
+					if (!type.includes('BLE')) {
+						uni.showToast({ title: 'Invalid QR code type', icon: 'error' })
+						return
+					}
+
+					// ✅ 6. 设备类型判断
+					if (emp.includes('NULL')) {
+						globalData.clinic = 0;
+						openWinByOperId(2)
+					} else if (emp.includes('CLINIC')) {
+						globalData.clinic = 1;
+						openWinByOperId(3)
+					} else if (ui.includes('M1')) {
+						globalData.clinic = 0;
+						openWinByOperId(1)
+					} else {
+						uni.showToast({ title: 'Unknown device type', icon: 'error' })
+					}
 				} else {
-					uni.showToast({
-						title: 'Unknown device type in QR code',
-						icon: 'error'
-					})
+					uni.showToast({ title: 'Invalid QR code format', icon: 'none' })
 				}
-			} else {
-				uni.showToast({ title: 'Invalid QR code format', icon: 'none' })
+			},
+			fail: () => {
+				uni.showToast({ title: 'Scan failed', icon: 'none' })
 			}
-		},
-		fail: () => {
-			uni.showToast({
-				title: 'Scan failed',
-				icon: 'none'
-			})
-		}
-	})
-}
-const customSelect = (operId: number) => {
-	openWinByOperId(operId);
-}
+		})
+	}
+
+	const customSelect = (operId : number) => {
+		openWinByOperId(operId)
+	}
+
+	const showLog = () => {
+		uni.navigateTo({
+			url: '/pages/log/log',
+			success(result) {
+				console.log('navigateTo success', result.errMsg)
+			},
+			fail(error) {
+				console.log('navigateTo fail', error.errMsg)
+			},
+			complete(result) {
+				console.log('navigateTo complete', result.errMsg)
+			},
+		})
+	}
 </script>
 
 <style>
-/* 主容器：黑色主题 + 居中布局 */
-.container {
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 0 30px;
-	box-sizing: border-box;
-	background-color: #000; /* 纯黑 */
-}
+	/* 主容器：黑色主题 + 居中布局 */
+	.container {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		padding: 0 30px;
+		box-sizing: border-box;
+		background-color: #000;
+		/* 纯黑 */
+		position: relative; /* 让右上角图标绝对定位生效 */
+	}
 
-.logo {
-	width: 100px;
-	height: 100px;
-	margin-top: 120px;
-}
+	/* 右上角声音开关 */
+	.sound-switch {
+		position: absolute;
+		top: 50px;
+		right: 30px;
+		z-index: 999;
+	}
+	.sound-icon {
+		font-size: 26px;
+		color: #fff;
+	}
 
-.title {
-	font-size: 18px;
-	color: #FFFFFF;
-	font-weight: 600;
-	text-align: center;
-	margin-top: 30px;
-}
+	.logo {
+		width: 100px;
+		height: 100px;
+		margin-top: 120px;
+	}
 
-/* 按钮固定底部 */
-.scan-box {
-	margin-top: auto;
-	margin-bottom: 70px;
-}
+	.title {
+		font-size: 18px;
+		color: #FFFFFF;
+		font-weight: 600;
+		text-align: center;
+		margin-top: 30px;
+	}
 
-.scan-btn {
-	background: linear-gradient(to right, #2a78b5, #64d2cb);
-	color: #FFFFFF;
-	border-radius: 10px;
-	padding: 14px 36px;
-	font-size: 18px;
-	font-weight: 600;
-	border: none;
-}
+	/* 按钮固定底部 */
+	.scan-box {
+		margin-top: auto;
+		margin-bottom: 70px;
+	}
 
-.custom-btn {
-	margin-bottom: 20rpx;
-	font-weight: 600;
-}
+	.scan-btn {
+		background: linear-gradient(to right, #2a78b5, #64d2cb);
+		color: #FFFFFF;
+		border-radius: 10px;
+		padding: 14px 36px;
+		font-size: 18px;
+		font-weight: 600;
+		border: none;
+	}
+
+	.custom-btn {
+		margin-bottom: 20px;
+		/* rpx 替换为 px，UVue 更稳定 */
+		font-weight: 600;
+	}
 </style>

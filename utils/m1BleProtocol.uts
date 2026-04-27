@@ -1,0 +1,291 @@
+// ==============================
+// M1 设备 BLE 蓝牙指令常量定义
+// 对应协议：指令1 查询信息 / 指令2 下发参数 / 指令3 查询参数
+// ==============================
+export class M1BleCmd {
+	// 指令1：M1 查询设备信息（版本、工作时间）
+	static readonly M1_CMD1_QUERY_DEVICE_INFO = 0xC0;
+	// 指令2：M1 下发运行参数（模式、频率、时间、强度等）
+	static readonly M1_CMD2_SET_PARAMS = 0xB0;
+	// 指令3：M1 查询当前运行参数
+	static readonly M1_CMD3_QUERY_PARAMS = 0xB1;
+}
+
+// ==============================
+// M1 指令2：下发参数 请求结构体
+// 主机 -> 从机：发送16字节参数数据
+// ==============================
+export class M1Cmd2SetParamsReq {
+	mode: number = 0;            // 模式：0=M模式 1=P模式
+	damp: number = 0;            // 阻尼：0=无阻尼 1=有阻尼
+	part: number = 0;            // 预设部位：1~8（仅P模式有效）
+	f1Freq: number = 0;          // F1频率：0.1~20.0Hz，值×10发送
+	f1Time: number = 0;          // F1运行时间：单位秒（5~1800）
+	f2Freq: number = 0;          // F2频率：M模式填0
+	f2Time: number = 0;          // F2运行时间：M模式填0
+	f3Freq: number = 0;          // F3频率：M模式填0
+	f3Time: number = 0;          // F3运行时间：M模式填0
+	power: number = 0;           // 强度：0~100%
+	timeMin: number = 0;         // 总定时：分钟 0~60
+	timeSec: number = 0;         // 总定时：秒 0~59
+	runState: number = 0;        // 运行状态：0=暂停 1=启动
+
+	// 对象转JSON（用于日志/存储）
+	toJSON(): UTSJSONObject {
+		return {
+			mode: this.mode,
+			damp: this.damp,
+			part: this.part,
+			f1Freq: this.f1Freq,
+			f1Time: this.f1Time,
+			f2Freq: this.f2Freq,
+			f2Time: this.f2Time,
+			f3Freq: this.f3Freq,
+			f3Time: this.f3Time,
+			power: this.power,
+			timeMin: this.timeMin,
+			timeSec: this.timeSec,
+			runState: this.runState
+		};
+	}
+
+	// JSON转对象（用于数据恢复）
+	fromJSON(json: UTSJSONObject): M1Cmd2SetParamsReq {
+		this.mode = json.getNumber('mode', 0);
+		this.damp = json.getNumber('damp', 0);
+		this.part = json.getNumber('part', 1);
+		this.f1Freq = json.getNumber('f1Freq', 10);
+		this.f1Time = json.getNumber('f1Time', 60);
+		this.f2Freq = json.getNumber('f2Freq', 0);
+		this.f2Time = json.getNumber('f2Time', 0);
+		this.f3Freq = json.getNumber('f3Freq', 0);
+		this.f3Time = json.getNumber('f3Time', 0);
+		this.power = json.getNumber('power', 50);
+		this.timeMin = json.getNumber('timeMin', 10);
+		this.timeSec = json.getNumber('timeSec', 0);
+		this.runState = json.getNumber('runState', 0);
+		return this;
+	}
+}
+
+// ==============================
+// M1 指令1：查询设备信息 返回结构体
+// 从机 -> 主机：返回设备版本+工作时间
+// ==============================
+export class M1Cmd1DeviceInfoResp {
+	versionA: string = "";      // A板版本 格式：X.X.X
+	versionB: string = "";      // B板版本 格式：X.X
+	workTime: number = 0;       // 仪器累计工作时间（分钟）
+
+	// 对象转JSON
+	toJSON(): UTSJSONObject {
+		return {
+			versionA: this.versionA,
+			versionB: this.versionB,
+			workTime: this.workTime
+		};
+	}
+}
+
+// ==============================
+// M1 指令3：查询运行参数 返回结构体
+// 从机 -> 主机：返回当前所有运行参数
+// ==============================
+export class M1Cmd3ParamsResp {
+	mode: number = 0;            // 模式
+	damp: number = 0;            // 阻尼状态
+	part: number = 0;            // 预设部位
+	f1Freq: number = 0;          // F1频率×10
+	f1Time: number = 0;          // F1时间（秒）
+	f2Freq: number = 0;          // F2频率×10
+	f2Time: number = 0;          // F2时间（秒）
+	f3Freq: number = 0;          // F3频率×10
+	f3Time: number = 0;          // F3时间（秒）
+	power: number = 0;           // 强度0~100
+	timeMin: number = 0;         // 定时分
+	timeSec: number = 0;         // 定时秒
+	runState: number = 0;        // 启停状态
+	runningFreq: number = 0;     // 当前运行频率×10
+
+	// 对象转JSON
+	toJSON(): UTSJSONObject {
+		return {
+			mode: this.mode,
+			damp: this.damp,
+			part: this.part,
+			f1Freq: this.f1Freq,
+			f1Time: this.f1Time,
+			f2Freq: this.f2Freq,
+			f2Time: this.f2Time,
+			f3Freq: this.f3Freq,
+			f3Time: this.f3Time,
+			power: this.power,
+			timeMin: this.timeMin,
+			timeSec: this.timeSec,
+			runState: this.runState,
+			runningFreq: this.runningFreq
+		};
+	}
+}
+
+// ==============================
+// M1 BLE 蓝牙协议核心封装类
+// 功能：组包、解包、校验、帧格式处理
+// ==============================
+export class M1BleProtocol {
+
+	/**
+	 * 通用：M1协议和校验计算
+	 * 规则：所有字节累加 → 只保留低8位
+	 * @param bytes 要校验的字节数组
+	 * @return 校验值
+	 */
+	private static calcCheckSum(bytes: number[]): number {
+		let sum = 0;
+		for (let i = 0; i < bytes.length; i++) {
+			sum += bytes[i];
+		}
+		return sum & 0xFF;
+	}
+
+	// ==============================
+	// 指令1：发送 查询设备信息
+	// 帧格式：0xA5 0x02 0xC0 0xC0
+	// ==============================
+	static m1Cmd1SendQueryDeviceInfo(): number[] {
+		const cmd = M1BleCmd.M1_CMD1_QUERY_DEVICE_INFO;
+		const check = this.calcCheckSum([cmd]);
+		let frame: number[] = [];
+		frame.push(0xA5);
+		frame.push(0x02);
+		frame.push(cmd);
+		frame.push(check);
+		return frame;
+	}
+
+	/**
+	 * 指令1：解析设备信息返回（严格匹配M1官方协议）
+	 * 帧格式：0xA5 + 0x0B + 0xC0 + 9字节数据 + 1字节校验 = 13字节
+	 */
+	static m1Cmd1ParseDeviceInfo(data: number[]): M1Cmd1DeviceInfoResp | null {
+	    // 1. 必须是 13 字节（协议固定长度）
+	    if (data.length != 13) {
+	        return null;
+	    }
+	
+	    // 2. 校验帧头、长度、命令
+	    if (data[0] != 0xA5 || data[1] != 0x0B || data[2] != M1BleCmd.M1_CMD1_QUERY_DEVICE_INFO) {
+	        return null;
+	    }
+	
+	    // 3. 和校验：校验范围 = 命令(0xC0) + 9字节数据
+	    const checkRange = data.slice(2, 12);  // 索引 2~11（共10字节）
+	    const receiveCheck = data[12];        // 校验值在最后 1 字节
+	    const calcCheck = this.calcCheckSum(checkRange);
+	    
+	    if (calcCheck !== receiveCheck) {
+	        return null;
+	    }
+	
+	    // 4. 解析数据（严格按协议）
+	    const resp = new M1Cmd1DeviceInfoResp();
+	    // A板版本 3字节：data[3] data[4] data[5]
+	    resp.versionA = `${data[3]}.${data[4]}.${data[5]}`;
+	    // B板版本 2字节：data[6] data[7]
+	    resp.versionB = `${data[6]}.${data[7]}`;
+	    // 32位时间：data[8][9][10][11] 小端
+	    resp.workTime = data[8] | (data[9] << 8) | (data[10] << 16) | (data[11] << 24);
+	
+	    return resp;
+	}
+	
+	// ==============================
+	// 指令2：发送 下发参数
+	// 帧格式：0xA5 0x12 0xB0 + 16字节数据 + 校验
+	// ==============================
+	static m1Cmd2SendSetParams(req: M1Cmd2SetParamsReq): number[] {
+		const cmd = M1BleCmd.M1_CMD2_SET_PARAMS;
+
+		const f1TimeL = req.f1Time & 0xFF;
+		const f1TimeH = (req.f1Time >> 8) & 0xFF;
+		const f2TimeL = req.f2Time & 0xFF;
+		const f2TimeH = (req.f2Time >> 8) & 0xFF;
+		const f3TimeL = req.f3Time & 0xFF;
+		const f3TimeH = (req.f3Time >> 8) & 0xFF;
+
+		const dataBuf: number[] = [
+			req.mode, req.damp, req.part,
+			req.f1Freq, f1TimeL, f1TimeH,
+			req.f2Freq, f2TimeL, f2TimeH,
+			req.f3Freq, f3TimeL, f3TimeH,
+			req.power, req.timeMin, req.timeSec, req.runState
+		];
+
+		const check = this.calcCheckSum([cmd, ...dataBuf]);
+		let frame: number[] = [];
+		frame.push(0xA5);
+		frame.push(0x12);
+		frame.push(cmd);
+		for (let b of dataBuf) frame.push(b);
+		frame.push(check);
+		return frame;
+	}
+
+	/**
+	 * 指令2：解析下发参数应答
+	 * @param data 从机应答帧
+	 * @return true=收到正确应答
+	 */
+	static m1Cmd2ParseSetAck(data: number[]): boolean {
+		if (data.length != 4) return false;
+		if (data[0] != 0xA5 || data[2] != M1BleCmd.M1_CMD2_SET_PARAMS) return false;
+		return data[3] === this.calcCheckSum([M1BleCmd.M1_CMD2_SET_PARAMS]);
+	}
+
+	// ==============================
+	// 指令3：发送 查询运行参数
+	// 帧格式：0xA5 0x03 0xB1 通道 校验
+	// ==============================
+	static m1Cmd3SendQueryParams(channel: number = 0): number[] {
+		const cmd = M1BleCmd.M1_CMD3_QUERY_PARAMS;
+		const check = this.calcCheckSum([cmd, channel]);
+		let frame: number[] = [];
+		frame.push(0xA5);
+		frame.push(0x03);
+		frame.push(cmd);
+		frame.push(channel);
+		frame.push(check);
+		return frame;
+	}
+
+	/**
+	 * 指令3：解析运行参数返回
+	 * @param data 从机返回原始数据
+	 * @return 解析后的参数对象
+	 */
+	static m1Cmd3ParseParams(data: number[]): M1Cmd3ParamsResp | null {
+		if (data.length != 21) return null;
+		if (data[0] != 0xA5 || data[2] != M1BleCmd.M1_CMD3_QUERY_PARAMS) return null;
+
+		const payload = data.slice(2, data.length - 1);
+		const check = data[data.length - 1];
+		if (this.calcCheckSum(payload) !== check) return null;
+
+		const resp = new M1Cmd3ParamsResp();
+		resp.mode = data[3];
+		resp.damp = data[4];
+		resp.part = data[5];
+		resp.f1Freq = data[6];
+		resp.f1Time = data[7] | (data[8] << 8);
+		resp.f2Freq = data[9];
+		resp.f2Time = data[10] | (data[11] << 8);
+		resp.f3Freq = data[12];
+		resp.f3Time = data[13] | (data[14] << 8);
+		resp.power = data[15];
+		resp.timeMin = data[16];
+		resp.timeSec = data[17];
+		resp.runState = data[18];
+		resp.runningFreq = data[19];
+		return resp;
+	}
+}

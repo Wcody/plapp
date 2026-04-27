@@ -34,13 +34,13 @@
 
 			<!-- 2. Frequency（频率）控制模块 -->
 			<m1-slider-control title="Frequency" :model-value="frequency"
-				@update:model-value="frequency = $event as number;" :low="0.5" :high="frequencyMax" :step-val="0.5"
-				:disabled="isP || isRunning" unit-str="Hz" />
+				@update:model-value="frequency = $event as number;" :low="0.5" :high="frequencyMax" :step-val="0.5" :disabled="isP || isRunning"
+				unit-str="Hz" />
 
 			<!-- 3. Time（时间）控制模块 -->
 			<m1-slider-control title="Time" :model-value="timeMinutes"
-				@update:model-value="timeMinutes = $event as number;" :low="timeMin" :high="timeMax"
-				:step-val="timeStep" :disabled="isP || isRunning" :unit-str="timeUnit" />
+				@update:model-value="timeMinutes = $event as number;" :low="timeMin" :high="timeMax" :step-val="timeStep" :disabled="isP || isRunning"
+				:unit-str="timeUnit" />
 		</scroll-view>
 		<!-- 底部水印+返回按钮 -->
 		<view class="footer-wrapper">
@@ -67,30 +67,10 @@
 	<info-msg :msg="infoMsgText" :visible="infoMsgVisible" @click="handleInfoMsgClose" mask-close-disabled />
 </template>
 
-<script setup lang="uts">
-	import { ref, computed, onMounted, onUnmounted } from 'vue';
+<script setup>
+	import { ref, computed, onMounted } from 'vue';
 	import { playClickSound } from '@/utils/common.uts';
 	import { getProgramsMap, ProgramItem, programsList, StartBeforeItem, intiStartBeforeItem } from '@/data/m1-programs.uts';
-
-	// ====================== M1 蓝牙库（你指定的文件）======================
-	import { useM1Bluetooth, M1_SEND_CMD2, M1_SEND_CMD3, M1_RECV_CMD3, M1_BLE_CONNECTED } from '@/utils/useM1BleProtocol.uts';
-	import { M1Cmd2SetParamsReq } from '@/utils/m1BleProtocol.uts';
-	import { globalData } from '@/utils/object.uts';
-
-	// ==================== 属性 ====================
-	const props = defineProps({
-		deviceId: {
-			type: String,
-			default: globalData.deviceId,
-		},
-		clinic: {
-			type: Number,
-			default: globalData.clinic,
-		},
-	})
-	console.log('props.deviceId', props.deviceId);
-	// ==================== 蓝牙实例 ====================
-	const bluetooth = useM1Bluetooth(props.deviceId);
 
 	// ==================== 状态数据 ====================
 	const activeMode = ref<string>('P');
@@ -106,182 +86,115 @@
 	const infoMsgVisible = ref<boolean>(false);
 	const infoMsgText = ref('DONE');
 	const startBeforeItem = ref<StartBeforeItem>(intiStartBeforeItem())
-
+	//时间相关的几个参数
 	const timeMin = ref(1);
 	const timeMax = ref(60);
 	const timeStep = ref(5);
 	const timeUnit = ref('Min');
-
+	// 是否启用阻尼震荡
 	const hasDamos = ref(true);
+	// M模式下，
 	const selectedTitle = ref('DEEP RECOVERY');
-
-	const isWorking = ref(false);
-	const canntUpdateNow = ref(false);
-	const canntUpdateNowTimeout = 5000;
-	const canntUpdateNowTimer = ref(0);
-
-	// ==================== 计算属性 ====================
+	// 获取所有模式的Map
 	const programsMap = getProgramsMap();
+	// 当前选中的程序对象
 	const currentProgram = computed<ProgramItem>(() => {
 		const item = programsMap[selectedTitle.value];
-		return item ?? programsList[0];
-	});
+		if (item != null) {
+			return item;
+		} else {
+			return programsList[0];
+		}
+	})
 
-	let firstShowM = true;
-
+	let firstShowM: boolean = true;
 	// ==================== 模式切换 ====================
 	const switchMode = (mode : string) => {
 		if (isRunning.value) return;
-		if (activeMode.value === mode) return;
-		if (firstShowM && mode === 'M') {
+		if (activeMode.value == mode) return;
+		if (firstShowM && mode == 'M') {
 			infoModalVisible.value = true;
 			firstShowM = false;
 		}
-		playClickSound();
+		playClickSound()
 		activeMode.value = mode;
 	};
 
-	// ==================== 强度 ====================
+	// ==================== 强度控制 ====================
 	const adjustIntensity = (step : number) => {
-		const newValue = intensity.value + step;
+		const newValue : number = intensity.value + step;
 		if (newValue >= 0 && newValue <= 100) {
 			intensity.value = newValue;
-			sendCmd2();
 		}
 	};
-
-	const onIntensityChange = (value : any) => {
+	const onIntensityChange = (value : UniSliderChangeEvent) => {
 		intensity.value = value.detail.value;
-		sendCmd2();
 	};
 
-	const isM = computed(() => activeMode.value === 'M');
-	const isP = computed(() => activeMode.value === 'P');
-
-	const btnTitle = computed(() => {
-		return isM.value ? "DAMPED OSCILLATION" : selectedTitle.value;
+	const isM = computed(() => {
+		return activeMode.value == 'M'
 	});
 
-	// ==================== 频率 ====================
+	const isP = computed(() => {
+		return activeMode.value == 'P'
+	});
+
+	const btnTitle = computed(() => {
+		if (isM.value) {
+			return "DAMPED OSCILLATION"
+		} else {
+			return selectedTitle.value
+		}
+	})
+
+	// ==================== 频率控制 ====================
 	const adjustFrequency = (step : number) => {
-		const newValue = frequency.value + step;
+		const newValue : number = frequency.value + step;
 		if (newValue >= 0 && newValue <= 20) {
 			frequency.value = newValue;
-			sendCmd2();
 		}
 	};
-
-	const onFrequencyChange = (value : any) => {
+	const onFrequencyChange = (value : UniSliderChangeEvent) => {
 		frequency.value = value.detail.value;
-		sendCmd2();
 	};
 
-	// ==================== 时间 ====================
+	// ==================== 时间控制 ====================
 	const adjustTime = (step : number) => {
-		const newValue = timeMinutes.value + step;
+		const newValue : number = timeMinutes.value + step;
 		if (newValue >= 0 && newValue <= 60) {
 			timeMinutes.value = newValue;
-			sendCmd2();
 		}
 	};
-
-	const onTimeChange = (value : any) => {
+	const onTimeChange = (value : UniSliderChangeEvent) => {
 		timeMinutes.value = value.detail.value;
-		sendCmd2();
 	};
 
-	// ==================== 发送 CMD2 ====================
-	const sendCmd2 = () => {
-		canntUpdateNow.value = true;
-
-		const cmd = new M1Cmd2SetParamsReq();
-		cmd.mode = hasDamos.value ? 1 : 0;
-		cmd.runState = isRunning.value ? 1 : 0;
-		cmd.power = intensity.value;
-		cmd.f1Freq = 0;
-		cmd.f1Time = 0; // 转换为秒
-		cmd.f2Freq = 0;
-		cmd.f2Time = 0;
-		cmd.f3Freq = 0;
-		cmd.f3Time = 0;
-		if (isM.value) {
-			// M 模式，只需要F1参数
-			cmd.f1Freq = frequency.value * 10;
-			cmd.f1Time = timeMinutes.value * 60; // 转换为秒
-		} else {
-			programsList.forEach((item) => {
-				if (item.title === selectedTitle.value) {
-					
-					const flags = item.flags;
-					if (flags.length > 0) {
-						cmd.f1Freq = flags[0].freq * 10;
-						cmd.f1Time = flags[0].time * 60; // 转换为秒
-					}
-					if (flags.length > 1) {
-						cmd.f2Freq = flags[1].freq * 10;
-						cmd.f2Time = flags[1].time * 60; // 转换为秒
-					}
-					if (flags.length > 2) {
-						cmd.f3Freq = flags[2].freq * 10;
-						cmd.f3Time = flags[2].time * 60; // 转换为秒
-					}
-				}
-			});
-		}
-
-		const mins = Math.floor(timeMinutes.value);
-		const secs = Math.round((timeMinutes.value - mins) * 60);
-		cmd.timeMin = mins;
-		cmd.timeSec = secs;
-
-		uni.$emit(M1_SEND_CMD2, cmd.toJSON());
-
-		clearTimeout(canntUpdateNowTimer.value);
-		canntUpdateNowTimer.value = setTimeout(() => {
-			canntUpdateNow.value = false;
-		}, canntUpdateNowTimeout);
-	};
-
-	// ==================== 发送 CMD3 ====================
-	const sendCmd3 = () => {
-		uni.$emit(M1_SEND_CMD3, 0);
-	};
-
-	// ==================== 模式切换 ====================
+	// ==================== 预设模式 ====================
 	const applyDeepRecovery = () => {
 		if (isRunning.value) return;
-		playClickSound();
-
+		playClickSound()
 		if (isM.value) {
-			hasDamos.value = !hasDamos.value;
 			if (hasDamos.value) {
-				frequencyMax.value = 10;
-				frequency.value = Math.min(frequency.value, 10);
-			} else {
+				hasDamos.value = false;
+				// 强度减成当前值一半
+				intensity.value = Math.max(1, Math.floor(intensity.value / 2));
+				// 频率最大值恢复为20
 				frequencyMax.value = 20;
+			} else {
+				hasDamos.value = true;
+				// 频率最大值为10
+				frequencyMax.value = 10;
+				frequency.value = Math.min(frequency.value, frequencyMax.value)
 			}
-			sendCmd2();
 		} else {
 			itemListVisible.value = true;
 		}
 	};
 
-	// ==================== 恢复数据 ====================
-	const restoreData = () => {
-		clearInterval(startBeforeItem.value.intervalHandle);
-		intensity.value = startBeforeItem.value.intensity;
-		frequency.value = startBeforeItem.value.frequency;
-		timeMinutes.value = startBeforeItem.value.timeMinutes;
-		timeMin.value = startBeforeItem.value.timeMin;
-		timeMax.value = startBeforeItem.value.timeMax;
-		timeStep.value = startBeforeItem.value.timeStep;
-		timeUnit.value = startBeforeItem.value.timeUnit;
-	};
-
-	// ==================== 启动 ====================
+	// ==================== 设备控制 ====================
 	const startDevice = () => {
 		if (isRunning.value) return;
-
+		// 记录启动前的数据
 		startBeforeItem.value.intensity = intensity.value;
 		startBeforeItem.value.frequency = frequency.value;
 		startBeforeItem.value.timeMinutes = timeMinutes.value;
@@ -289,129 +202,105 @@
 		startBeforeItem.value.timeMax = timeMax.value;
 		startBeforeItem.value.timeStep = timeStep.value;
 		startBeforeItem.value.timeUnit = timeUnit.value;
-
-		playClickSound();
+		
+		//播放声音
+		playClickSound()
 		isRunning.value = true;
-
+		
+		// 根据分钟数计算剩余秒数
 		let remainSec = timeMinutes.value * 60;
+		//按照秒数进度重新指定最大值，完成后再复位
 		timeMax.value = remainSec;
-		timeMinutes.value = remainSec;
+		timeMinutes.value = timeMax.value;
 		timeStep.value = 1;
 		timeMin.value = 0;
 		timeUnit.value = 'Min1';
-
-		sendCmd2();
-
+		
+		//启动计时器计时, 1秒一次
 		startBeforeItem.value.intervalHandle = setInterval(() => {
 			remainSec--;
 			playClickSound();
 			if (remainSec > 0) {
+				// 继续算时间
 				timeMinutes.value = remainSec;
 			} else {
+				// 已经完成
 				infoMsgVisible.value = true;
 				isRunning.value = false;
-				restoreData();
-				sendCmd2();
+				intensity.value = startBeforeItem.value.intensity;
+				frequency.value = startBeforeItem.value.frequency;
+				timeMinutes.value = startBeforeItem.value.timeMinutes;
+				timeMin.value = startBeforeItem.value.timeMin;
+				timeMax.value = startBeforeItem.value.timeMax;
+				timeStep.value = startBeforeItem.value.timeStep;
+				timeUnit.value = startBeforeItem.value.timeUnit;
+				
+				//销毁定时
+				clearInterval(startBeforeItem.value.intervalHandle);
 			}
-		}, 1000);
+		}, 1000)
 	};
-
-	// ==================== 停止 ====================
 	const stopDevice = () => {
 		if (!isRunning.value) return;
-		playClickSound();
+		playClickSound()
 		isRunning.value = false;
-		restoreData();
-		sendCmd2();
+		intensity.value = startBeforeItem.value.intensity;
+		frequency.value = startBeforeItem.value.frequency;
+		timeMinutes.value = startBeforeItem.value.timeMinutes;
+		timeMin.value = startBeforeItem.value.timeMin;
+		timeMax.value = startBeforeItem.value.timeMax;
+		timeStep.value = startBeforeItem.value.timeStep;
+		timeUnit.value = startBeforeItem.value.timeUnit;
+		
+		//销毁定时
+		clearInterval(startBeforeItem.value.intervalHandle);
 	};
 
-	// ==================== 弹窗关闭 ====================
+	// ==================== 菜单/设置 ====================
 	const openMenu = () => {
 		if (isRunning.value) return;
-		playClickSound();
-		infoModalVisible.value = isM.value;
-		infoProgramVisible.value = isP.value;
+		playClickSound()
+		infoModalVisible.value = activeMode.value == 'M';
+		infoProgramVisible.value = activeMode.value == 'P';
 	};
-
-	const openSettings = () => { };
-
+	const openSettings = () => {
+		if (isRunning.value) return;
+		//playClickSound()
+		//infoProgramVisible.value = true;
+	};
 	const infoModalClose = () => {
 		infoModalVisible.value = false;
-	};
-
+	}
 	const infoProgramClose = () => {
 		infoProgramVisible.value = false;
-	};
-
+	}
 	const itemInfoClose = () => {
 		itemInfoVisible.value = false;
-	};
-
+	}
 	const itemListClose = () => {
 		itemListVisible.value = false;
-	};
-
-	// ==================== 程序选择 ====================
-	const programSelect = (title : string) => {
+	}
+	const programSelect = (title: string) => {
 		selectedTitle.value = title;
-		const item = currentProgram.value;
-		// ✅ 修复：UTS 必须明确判断 != null
+		const item = programsMap[selectedTitle.value] as ProgramItem;
+		// 赋值到当前
 		if (item != null) {
 			hasDamos.value = item.hasDamos;
 			frequency.value = item.flags[0].freq;
 			timeMinutes.value = item.totalTime;
-			frequencyMax.value = item.hasDamos ? 10 : 20;
-			sendCmd2();
+			
+			if (hasDamos.value) {
+				frequencyMax.value = 10;
+			} else {
+				frequencyMax.value = 20;
+			}
 		}
+		
 		itemInfoVisible.value = true;
-	};
-
+	}
 	const handleInfoMsgClose = () => {
 		infoMsgVisible.value = false;
-	};
-
-	// ==================== 蓝牙数据更新 ====================
-	const fromCmd3Update = (data : UTSJSONObject) => {
-		if (isWorking.value || canntUpdateNow.value) return;
-		isWorking.value = true;
-
-		try {
-			isRunning.value = data.getNumber('runState', 0) == 1;
-			hasDamos.value = data.getNumber('mode', 0) == 1;
-			intensity.value = data.getNumber('power', 10);
-			frequency.value = data.getNumber('f1Freq', 100) / 10;
-
-			const tMin = data.getNumber('timeMin', 0);
-			const tSec = data.getNumber('timeSec', 0);
-
-			if (timeUnit.value === 'Min1') {
-				timeMinutes.value = tMin * 60 + tSec;
-			} else {
-				timeMinutes.value = tMin + tSec / 60;
-			}
-		} finally {
-			isWorking.value = false;
-		}
-	};
-
-	// ==================== 生命周期 ====================
-	onMounted(() => {
-		uni.$on(M1_BLE_CONNECTED, (connected : boolean) => {
-			if (connected) sendCmd3();
-		});
-
-		uni.$on(M1_RECV_CMD3, fromCmd3Update);
-
-		bluetooth.initBluetoothListener();
-		bluetooth.initAutoFlow();
-	});
-
-	onUnmounted(() => {
-		clearInterval(startBeforeItem.value.intervalHandle);
-		uni.$off(M1_RECV_CMD3);
-		uni.$off(M1_BLE_CONNECTED);
-		bluetooth.destroyBluetooth();
-	});
+	}
 </script>
 
 <style scoped>
@@ -452,7 +341,7 @@
 		color: #fff;
 		font-size: 56rpx;
 	}
-
+	
 	.icon-text1 {
 		color: transparent;
 		font-size: 56rpx;
@@ -542,7 +431,7 @@
 		background-color: #1A1A1A;
 		border: 3rpx solid #333;
 	}
-
+	
 	.footer-wrapper {
 		width: 100%;
 		padding: 20rpx;

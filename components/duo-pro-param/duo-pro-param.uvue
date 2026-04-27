@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="uts">
-	import { playClickSound, formatFreq, formatTime, formatTimeMin1 } from '../../utils/common'
+	import { playClickSound, formatFreq, formatTime, formatTimeMin1, formatKGS } from '../../utils/common'
 	import { ParamItem, ParamProps, initParamItem } from '@/data/duo-config.uts'
 	
 	// Props声明，不能直接写字面量，要在uts中定义类型
@@ -40,8 +40,8 @@
 			centerText = formatTime(props.param.value);
 		} else if (centerUnit == 'Min1') {
 			centerText = formatTimeMin1(props.param.value);
-		} else if (centerUnit == 'KGs') {
-			centerText = formatFreq(props.param.value);
+		} else if (centerUnit == 'kGs') {
+			centerText = formatKGS(props.param.value);
 		} else {
 			centerText = props.param.value + '';
 		}
@@ -78,7 +78,7 @@
 
 	/* 参数值容器：未选中态 */
 	.param-value-box {
-		width: 70%;
+		width: 90%;
 		height: 80rpx;
 		border-radius: 16rpx;
 		border: 2rpx solid #fff;
