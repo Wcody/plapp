@@ -20,6 +20,9 @@ export const RECV_CMD3 : string = "RECV_CMD3";
 // 连接成功的事件
 export const BLE_CONNECTED : string = "BLE_CONNECTED";
 
+// 标记当前是否正在处理CMD2，防止冲突
+let cmd2IsProcessing = false;
+
 
 export class BluetoothSession {
 	private targetDeviceId : string;
@@ -33,7 +36,6 @@ export class BluetoothSession {
 	// 🔥 新增：双向同步核心
 	// ======================
 	private pollTimer = ref(0);    // 轮询定时器
-	private bleBusy = ref(false);               // 蓝牙读写互斥锁
 
 	bleEnabled = ref(false);
 	scanning = ref(false);
@@ -67,20 +69,14 @@ export class BluetoothSession {
 	startPolling() {
 		this.stopPolling();
 		this.pollTimer.value = setInterval(() => {
-			if (!this.isConnected.value || this.bleBusy.value) return;
+			if (!this.isConnected.value) return;
 
-			this.bleBusy.value = true;
 			// 依次查询通道1、2
-			setTimeout(() => {
-				this.readDeviceParamByChannel(0);
-			}, 100);
+			this.readDeviceParamByChannel(0);
 			setTimeout(() => {
 				this.readDeviceParamByChannel(1);
-				setTimeout(() => {
-					this.bleBusy.value = false;
-				}, 100);
-			}, 250);
-		}, 3000);
+			}, 200);
+		}, 600);
 		this.addLog("🔄 已启动参数轮询同步");
 	}
 
@@ -92,7 +88,8 @@ export class BluetoothSession {
 	}
 
 	// 单独查询某个通道
-	readDeviceParamByChannel(channel: number) {
+	readDeviceParamByChannel(channel : number) {
+		if (cmd2IsProcessing) return;
 		const cmd = BleProtocol.cmd3_sendQueryParams(channel);
 		ble.writeBytes(cmd);
 		this.addLog(`轮询查询通道${channel}`);
@@ -100,13 +97,14 @@ export class BluetoothSession {
 
 	startScan() : void {
 		if (!this.bleEnabled.value) {
-			uni.showToast({ title: "请先开启蓝牙", icon: "none" });
+			uni.showToast({ title: "Please enable Bluetooth first", icon: "none" });
 			return;
 		}
 
 		this.scanning.value = true;
 		this.deviceId.value = "";
-		this.addLog("开始扫描设备...");
+		this.addLog("开始扫描M1设备...");
+		this.addLog("Start scanning for device...");
 
 		ble.startScan((device) => {
 			if (device.deviceId == this.targetDeviceId) {
@@ -128,19 +126,29 @@ export class BluetoothSession {
 				ble.stopScan();
 				this.scanning.value = false;
 				this.addLog("⏰ 扫描超时");
+				uni.hideLoading();
+				const title = `Scan for device[${this.targetDeviceId}] timed out`;
+				// 超时 Toast：带上 targetDeviceId
+				uni.showToast({
+					title: title,
+					icon: "none"
+				});
+				this.addLog(title);
+				// 关闭当前页面，返回上一级
+				uni.navigateBack();
 			}
 		}, 10000);
 	}
 
 	connectDevice() : void {
 		if (this.deviceId.value.length == 0) {
-			uni.showToast({ title: "请先扫描设备", icon: "none" });
+			uni.showToast({ title: "Please scan the device first.", icon: "none" });
 			return;
 		}
 
 		this.isAutoConnecting.value = true;
 		this.addLog("正在连接设备...");
-		uni.showToast({ title: "连接中", icon: "none" });
+		uni.showToast({ title: "Connecting via Bluetooth", icon: "none" });
 
 		ble.connect(this.deviceId.value, {
 			seviceUuid: this.serviceUuid,
@@ -152,7 +160,7 @@ export class BluetoothSession {
 		this.connectTimeoutId = setTimeout(() => {
 			if (!this.isConnected.value) {
 				this.addLog("⏰ 连接超时");
-				uni.showToast({ title: "超时未连接", icon: "none" });
+				uni.showToast({ title: "Connection timed out", icon: "none" });
 				this.isAutoConnecting.value = false;
 			}
 		}, 5000);
@@ -176,9 +184,6 @@ export class BluetoothSession {
 	// 🔥 强化：用户下发参数时自动上锁（防冲突）
 	// ======================
 	sendTestData() : void {
-		if (this.bleBusy.value) return;
-		this.bleBusy.value = true;
-
 		const req = new Cmd2SetParamsReq();
 		req.clinic = 0;
 		req.channel = 1;
@@ -198,10 +203,6 @@ export class BluetoothSession {
 			const cmd2 = BleProtocol.cmd2_sendSetParams(req);
 			ble.writeBytes(cmd2);
 			this.addLog(`已发送：${JSON.stringify(cmd2)}`);
-
-			setTimeout(() => {
-				this.bleBusy.value = false;
-			}, 200);
 		}, 200);
 	}
 
@@ -247,18 +248,31 @@ export class BluetoothSession {
 	}
 
 	initBluetoothListener() : void {
+		let resetTimer = 0; // 定时器ID
+		let retryTimer = 0; // 重试定时器ID
 		ble.onDataReceived((data : number[]) => {
-			this.addLog(`收到原始数据1：${JSON.stringify(data)}`);
+			//this.addLog(`收到原始数据1：${JSON.stringify(data)}`);
+			if (data.length < 3) return;
+			
 			const cmd = data[2];
 			if (cmd == BleCmd.CMD1_QUERY_DEVICE_INFO) {
+				if (cmd2IsProcessing) return;
 				const info = BleProtocol.cmd1_parseDeviceInfo(data);
 				uni.$emit(RECV_CMD1, info?.toJSON());
-				this.addLog(`设备信息：${JSON.stringify(info?.toJSON())}`);
+				//this.addLog(`设备信息：${JSON.stringify(info?.toJSON())}`);
 			} else if (cmd == BleCmd.CMD2_SET_PARAMS) {
-				const params = BleProtocol.cmd2_parseSetAck(data);
-				uni.$emit(RECV_CMD2, params);
-				this.addLog(`系统参数：${params}`);
+				try {
+					const ack = BleProtocol.cmd2_parseSetAck(data);
+					uni.$emit(RECV_CMD2, ack);
+					this.addLog(`参数下发应答：${ack}`);
+				} finally {
+					clearTimeout(resetTimer);
+					clearTimeout(retryTimer);
+					cmd2IsProcessing = false;
+				}
+				//this.addLog(`系统参数：${params}`);
 			} else if (cmd == BleCmd.CMD3_QUERY_PARAMS) {
+				if (cmd2IsProcessing) return;
 				const params = BleProtocol.cmd3_parseParams(data);
 				uni.$emit(RECV_CMD3, params?.toJSON());
 				this.addLog(`系统参数：${JSON.stringify(params?.toJSON())}`);
@@ -286,51 +300,64 @@ export class BluetoothSession {
 				this.isConnected.value = true;
 				this.isAutoConnecting.value = false;
 				this.addLog("✅ 设备连接成功");
-				// ======================
-				// 🔥 连接成功后自动启动轮询
-				// ======================
+				uni.showToast({ title: "Connected to device", icon: "success" });
+				uni.hideLoading();
+				// 连接成功自动启动500ms轮询
 				this.startPolling();
 			} else {
 				uni.$emit(BLE_CONNECTED, false);
 				this.clearConnectTimeout();
 				this.isConnected.value = false;
 				this.isAutoConnecting.value = false;
-				this.addLog("❌ 设备已断开/连接失败");
+				this.addLog("❌ Device disconnected / Connection failed");
+				uni.navigateBack();
 				// 断开停止轮询
 				this.stopPolling();
 			}
 		});
-		
+
 		// 监听需要发送数据的信息
 		uni.$on(SEND_CMD1, () => {
 			const cmd = BleProtocol.cmd1_sendQueryDeviceInfo();
 			ble.writeBytes(cmd);
-			this.addLog(`已发送：${JSON.stringify(cmd)}`);
+			//this.addLog(`已发送查询：${JSON.stringify(cmd)}`);
 		});
 
 		// ======================
 		// 🔥 强化：下发参数自动上锁
 		// ======================
 		uni.$on(SEND_CMD2, (params : UTSJSONObject) => {
-			console.log("监听到SEND_CMD2事件，参数：", params);
-			if (this.bleBusy.value) return;
-			this.bleBusy.value = true;
+			cmd2IsProcessing = true;
+			if (resetTimer > 0) {
+				clearTimeout(resetTimer);
+				resetTimer = 0;
+			}
+			if (retryTimer > 0) {
+				clearTimeout(retryTimer);
+				retryTimer = 0;
+			}
+			resetTimer = setTimeout(() => {
+				// 兜底重置，防止某些极端情况导致的死锁
+				cmd2IsProcessing = false;
+			}, 1000);
+			console.log("收到下发参数：", params);
 
 			const req = new Cmd2SetParamsReq()
 			req.fromJSON(params);
 			const cmd = BleProtocol.cmd2_sendSetParams(req);
 			ble.writeBytes(cmd);
-			this.addLog(`已发送：${JSON.stringify(cmd)}`);
-
-			setTimeout(() => {
-				this.bleBusy.value = false;
+			retryTimer = setTimeout(() => {
+				// 200毫秒内没响应就重试一次
+				console.warn("CMD2 set params timeout, retrying...", params);
+				ble.writeBytes(cmd);
 			}, 200);
+			this.addLog(`已发送：${JSON.stringify(cmd)}`);
 		});
-		
+
 		uni.$on(SEND_CMD3, (channel : number) => {
 			const cmd = BleProtocol.cmd3_sendQueryParams(channel);
 			ble.writeBytes(cmd);
-			this.addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
+			//this.addLog(`已发送查询指令：${JSON.stringify(cmd)}`);
 		});
 	}
 

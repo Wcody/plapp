@@ -1,11 +1,9 @@
 import { ref } from "vue";
 import * as ble from '@/uni_modules/xl-ble';
-import { 
-	M1BleCmd, 
-	M1Cmd2SetParamsReq, 
+import {
+	M1BleCmd,
+	M1Cmd2SetParamsReq,
 	M1BleProtocol,
-	M1Cmd1DeviceInfoResp,
-	M1Cmd3ParamsResp
 } from '@/utils/m1BleProtocol.uts';
 
 /**
@@ -52,7 +50,7 @@ export class M1BluetoothSession {
 
 	// 数据轮询定时器
 	private pollTimer = ref(0);
-	
+
 	// 蓝牙开关状态
 	bleEnabled = ref(false);
 	// 扫描中状态
@@ -95,17 +93,6 @@ export class M1BluetoothSession {
 			this.connectTimeoutId = null;
 		}
 	}
-	
-	/**
-	 * 查询M1设备参数
-	 * @param channel 通道号 M1固定0
-	 */
-	readM1DeviceParam(channel: number = 0) : void {
-		if (cmd2IsProcessing) return;
-		const cmd = M1BleProtocol.m1Cmd3SendQueryParams(channel);
-		ble.writeBytes(cmd);
-		this.addLog(`轮询查询M1通道${channel}`);
-	}
 
 	/**
 	 * 启动M1设备参数自动轮询
@@ -116,7 +103,7 @@ export class M1BluetoothSession {
 		this.pollTimer.value = setInterval(() => {
 			// 未连接 / 蓝牙忙碌 直接跳过
 			if (!this.isConnected.value) return;
-			readM1DeviceParam();
+			this.readM1DeviceParam();
 		}, 450);
 		this.addLog("🔄 已启动M1参数轮询同步(500ms)");
 	}
@@ -129,6 +116,17 @@ export class M1BluetoothSession {
 			clearInterval(this.pollTimer.value);
 			this.pollTimer.value = 0;
 		}
+	}
+	
+	/**
+	 * 查询M1设备参数
+	 * @param channel 通道号 M1固定0
+	 */
+	readM1DeviceParam(channel : number = 0) : void {
+		if (cmd2IsProcessing) return;
+		const cmd = M1BleProtocol.m1Cmd3SendQueryParams(channel);
+		ble.writeBytes(cmd);
+		this.addLog(`轮询查询M1通道${channel}`);
 	}
 
 	/**
@@ -143,7 +141,7 @@ export class M1BluetoothSession {
 		this.scanning.value = true;
 		this.deviceId.value = "";
 		this.addLog("开始扫描M1设备...");
-		uni.showLoading({ title: "Start scanning for device..." });	
+		uni.showLoading({ title: "Start scanning for device..." });
 
 		// 启动蓝牙扫描
 		ble.startScan((device) => {
@@ -172,9 +170,9 @@ export class M1BluetoothSession {
 				uni.hideLoading();
 				const title = `Scan for device[${this.targetDeviceId}] timed out`;
 				// 超时 Toast：带上 targetDeviceId
-				uni.showToast({ 
-					title: title, 
-					icon: "none" 
+				uni.showToast({
+					title: title,
+					icon: "none"
 				});
 				this.addLog(title);
 				// 关闭当前页面，返回上一级
@@ -188,7 +186,7 @@ export class M1BluetoothSession {
 	 */
 	connectDevice() : void {
 		if (this.deviceId.value.length == 0) {
-			uni.showToast({ title: "请先扫描M1设备", icon: "none" });
+			uni.showToast({ title: "Please scan the M1 device first.", icon: "none" });
 			return;
 		}
 
@@ -308,8 +306,8 @@ export class M1BluetoothSession {
 		let retryTimer = 0; // 重试定时器ID
 		ble.onDataReceived((data : number[]) => {
 			//this.addLog(`收到M1原始数据：${JSON.stringify(data)}`);
-			if(data.length < 3) return;
-			
+			if (data.length < 3) return;
+
 			// 截取指令码
 			const cmd = data[2];
 			// 指令1：设备信息应答
@@ -318,7 +316,7 @@ export class M1BluetoothSession {
 				const info = M1BleProtocol.m1Cmd1ParseDeviceInfo(data);
 				uni.$emit(M1_RECV_CMD1, info?.toJSON());
 				//this.addLog(`M1设备信息：${JSON.stringify(info?.toJSON())}`);
-			} 
+			}
 			// 指令2：参数下发应答
 			else if (cmd == M1BleCmd.M1_CMD2_SET_PARAMS) {
 				try {
@@ -328,19 +326,16 @@ export class M1BluetoothSession {
 				} finally {
 					clearTimeout(resetTimer);
 					clearTimeout(retryTimer);
-					// 无论如何都重置标记
-					setTimeout(() => {
-						cmd2IsProcessing = false;
-					}, 1000);
+					cmd2IsProcessing = false;
 				}
-			} 
+			}
 			// 指令3：设备参数应答
 			else if (cmd == M1BleCmd.M1_CMD3_QUERY_PARAMS) {
 				if (cmd2IsProcessing) return;
 				const params = M1BleProtocol.m1Cmd3ParseParams(data);
 				uni.$emit(M1_RECV_CMD3, params?.toJSON());
 				this.addLog(`M1运行参数：${JSON.stringify(params?.toJSON())}`);
-			} 
+			}
 			// 未知指令
 			else {
 				this.addLog(`M1未知命令：${JSON.stringify(data)}`);
@@ -384,7 +379,7 @@ export class M1BluetoothSession {
 				this.stopPolling();
 			}
 		});
-		
+
 		// 全局事件：触发查询设备信息
 		uni.$on(M1_SEND_CMD1, () => {
 			if (cmd2IsProcessing) return;
@@ -422,13 +417,13 @@ export class M1BluetoothSession {
 			}, 200);
 			this.addLog(`已发送M1参数：${JSON.stringify(cmd)}`);
 		});
-		
+
 		// 全局事件：触发查询设备参数
 		uni.$on(M1_SEND_CMD3, (channel : number) => {
 			const realChannel = channel ?? 0; // 在这里赋默认值，不在参数里写
-				const cmd = M1BleProtocol.m1Cmd3SendQueryParams(realChannel);
-				ble.writeBytes(cmd);
-				//this.addLog(`已发送M1查询参数指令：${JSON.stringify(cmd)}`);
+			const cmd = M1BleProtocol.m1Cmd3SendQueryParams(realChannel);
+			ble.writeBytes(cmd);
+			//this.addLog(`已发送M1查询参数指令：${JSON.stringify(cmd)}`);
 		});
 	}
 
@@ -449,12 +444,12 @@ export class M1BluetoothSession {
 		ble.stopScan();
 		ble.disconnect();
 		this.isAutoConnecting.value = false;
-		
+
 		// 移除全局事件监听，防止内存泄漏
 		uni.$off(M1_SEND_CMD1);
 		uni.$off(M1_SEND_CMD2);
 		uni.$off(M1_SEND_CMD3);
-		
+
 		this.addLog("已释放M1蓝牙资源");
 	}
 }
