@@ -52,7 +52,7 @@ export class M1BluetoothSession {
 	private pollTimer = ref(0);
 
 	// 蓝牙开关状态
-	bleEnabled = ref(false);
+	bleEnabled = ref(true);
 	// 扫描中状态
 	scanning = ref(false);
 	// 当前连接设备ID
