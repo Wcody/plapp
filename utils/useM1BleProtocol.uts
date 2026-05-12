@@ -146,19 +146,20 @@ export class M1BluetoothSession {
 		// 启动蓝牙扫描
 		ble.startScan((device) => {
 			// 匹配目标设备ID
-			if (device.deviceId == this.targetDeviceId) {
-				this.deviceId.value = device.deviceId;
-				ble.stopScan();
-				this.scanning.value = false;
-				this.addLog(`✅ 找到目标M1设备：${device.name}`);
+			this.addLog(`扫描到设备：${JSON.stringify(device)}`);
+			// if (device.deviceId == this.targetDeviceId) {
+			// 	this.deviceId.value = device.deviceId;
+			// 	ble.stopScan();
+			// 	this.scanning.value = false;
+			// 	this.addLog(`✅ 找到目标M1设备：${device.name}`);
 
-				// 自动发起连接
-				if (!this.isConnected.value && !this.isAutoConnecting.value) {
-					setTimeout(() => {
-						this.connectDevice();
-					}, 200);
-				}
-			}
+			// 	// 自动发起连接
+			// 	if (!this.isConnected.value && !this.isAutoConnecting.value) {
+			// 		setTimeout(() => {
+			// 			this.connectDevice();
+			// 		}, 200);
+			// 	}
+			// }
 		}, null);
 
 		// 10秒扫描超时自动停止
@@ -176,7 +177,7 @@ export class M1BluetoothSession {
 				});
 				this.addLog(title);
 				// 关闭当前页面，返回上一级
-				uni.navigateBack();
+				//uni.navigateBack();
 			}
 		}, 10000);
 	}

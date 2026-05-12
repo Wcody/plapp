@@ -133,7 +133,7 @@
 
 	const showLog = () => {
 		uni.navigateTo({
-			url: '/pages/log/log',
+			url: '/pages/log/logM1',
 			success(result) {
 				console.log('navigateTo success', result.errMsg)
 			},
