@@ -18,7 +18,7 @@
 		},
 		clinic: {
 			type: Number,
-			default: globalData.clinic,
+			default: Math.max(globalData.clinic, 1),
 		},
 	})
 </script>

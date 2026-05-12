@@ -46,29 +46,26 @@
 	
 	// 参数点击事件
 	const handleParamClick = (param : ParamItem) => {
-		if (props.isRunning && param.title != 'Intensity') return;
+		if (props.isRunning && param.title == 'Time') return;
 		playClickSound();
 		emit('param-click', param);
 	};
 	
 	// 参数选中事件
 	const handleParamSelect = (param : ParamItem) => {
-		if (props.isRunning && param.title != 'Intensity') return;
-		playClickSound();
+		if (props.isRunning && param.title == 'Time') return;
 		emit('param-select', param);
 	};
 	
 	// 启动按钮
 	const handleStart = () => {
 		if (props.isRunning) return;
-		playClickSound();
 		emit('start');
 	};
 	
 	// 停止按钮
 	const handleStop = () => {
 		if (!props.isRunning) return;
-		playClickSound();
 		emit('stop');
 	};
 	

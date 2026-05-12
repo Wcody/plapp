@@ -56,6 +56,8 @@
 
 - (void)writeBytes:(NSString *_Nonnull)str;
 
+- (void)writeBytes2:(NSDictionary *_Nonnull)dict;
+
 - (void)writeStringCmd:(NSString *_Nonnull)str;
 
 - (void)read:(NSString *_Nonnull)str;

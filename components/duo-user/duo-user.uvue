@@ -36,13 +36,20 @@
 	})
 
 	// 初始化蓝牙
+	//const bluetooth = useBluetooth(props.deviceId == '' ? "B4:C2:E0:E7:C4:34" : props.deviceId);
 	const bluetooth = useBluetooth(props.deviceId);
 	// 要么读，要么写，不能同时进行，否则会有冲突
 	const isWorking = ref(false);
 	// 发送消息后，等待一段时间才能同步从机数据
 	const canntUpdateNow = ref(false);
-	const canntUpdateNowTimeout = 5000;
+	const canntUpdateNowTimeout = 100;
 	const canntUpdateNowTimer = ref(0);
+	
+	// 是否计时停止，普通停止不算，用于判断是否显示完成框
+	const isStopNowA = ref(false);
+	const isStopNowB = ref(false);
+	const isFirstStopNowA = ref(true);
+	const isFirstStopNowB = ref(true);
 
 	// ========== 设置值相关 ===================
 	//选中的Item
@@ -81,7 +88,6 @@
 	] as ParamItem[]);
 
 	const sendedCmd2 = (chanel : number) => {
-		canntUpdateNow.value = true;
 		const itemS = (chanel == 0) ? channelAParams : channelBParams;
 		const intensity = itemS.value[0];
 		const frequency = itemS.value[1];
@@ -121,19 +127,27 @@
 			canntUpdateNow.value = false;
 		}, canntUpdateNowTimeout);
 	};
-	
+
 	// 300ms 内多次调用，只执行最后一次，避免频繁发送蓝牙消息
 	const sendACmd2 = () => {
 		sendedCmd2(0);
 	};
-	const debouncedSendACmd2 = debounce(sendACmd2, 300);
-	
+	const deA = debounce(sendACmd2, 300);
+	const debouncedSendACmd2 = () => {
+		canntUpdateNow.value = true;
+		deA();
+	};
+
 	// 300ms 内多次调用，只执行最后一次，避免频繁发送蓝牙消息
 	const sendBCmd2 = () => {
 		sendedCmd2(1);
 	};
-	const debouncedSendBCmd2 = debounce(sendBCmd2, 300);
-	
+	const deB = debounce(sendBCmd2, 300);
+	const debouncedSendBCmd2 = () => {
+		canntUpdateNow.value = true;
+		deB();
+	};
+
 	const sendedCmd3 = () => {
 		uni.$emit(SEND_CMD3, 0);
 		setTimeout(() => {
@@ -202,45 +216,51 @@
 		time.unit = 'Min1';
 
 		//启动计时器计时, 1秒一次
-		itemE.value.intervalHandle = setInterval(() => {
-			remainSec--;
-			playClickSound();
-			if (remainSec > 0) {
-				// 继续算时间
-				time.value = remainSec;
-			} else {
-				// 已经完成
-				if (channel == 'A') {
-					infoMsgVisibleA.value = true;
-					channelAIsRunning.value = false;
-				} else if (channel == 'B') {
-					infoMsgVisibleB.value = true;
-					channelBIsRunning.value = false;
-				}
-				restoreDataAfterFinish(itemE, itemS);
-			}
+		// itemE.value.intervalHandle = setInterval(() => {
+		// 	remainSec--;
+		// 	playClickSound();
+		// 	if (remainSec > 0) {
+		// 		// 继续算时间
+		// 		time.value = remainSec;
+		// 	} else {
+		// 		// 已经完成
+		// 		if (channel == 'A') {
+		// 			infoMsgVisibleA.value = true;
+		// 			channelAIsRunning.value = false;
+		// 		} else if (channel == 'B') {
+		// 			infoMsgVisibleB.value = true;
+		// 			channelBIsRunning.value = false;
+		// 		}
+		// 		restoreDataAfterFinish(itemE, itemS);
+		// 	}
 
-			// 仪器操作的停止
-			if (channel == 'A' && !channelAIsRunning.value && itemE.value.intervalHandle > 0) {
-				clearInterval(itemE.value.intervalHandle);
-				itemE.value.intervalHandle = 0;
-			} else if (channel == 'B' && !channelBIsRunning.value && itemE.value.intervalHandle > 0) {
-				clearInterval(itemE.value.intervalHandle);
-				itemE.value.intervalHandle = 0;
-			}
-		}, 1000)
+		// 	// 仪器操作的停止
+		// 	if (channel == 'A' && !channelAIsRunning.value && itemE.value.intervalHandle > 0) {
+		// 		clearInterval(itemE.value.intervalHandle);
+		// 		itemE.value.intervalHandle = 0;
+		// 	} else if (channel == 'B' && !channelBIsRunning.value && itemE.value.intervalHandle > 0) {
+		// 		clearInterval(itemE.value.intervalHandle);
+		// 		itemE.value.intervalHandle = 0;
+		// 	}
+		// }, 1000)
 	}
 
 	const handleChannelAStart = () => {
+		const time = channelAParams.value[2];
+		if (time.value <= 0) return;
+		if (channelAIsRunning.value) return;
 		channelAIsRunning.value = true;
-		backupDataBeforeStart(startBeforeItemA, channelAParams, 'A');
+		//backupDataBeforeStart(startBeforeItemA, channelAParams, 'A');
 		debouncedSendACmd2();
+		playClickSound();
 	};
 
 	const handleChannelAStop = () => {
+		if (!channelAIsRunning.value) return;
 		channelAIsRunning.value = false;
-		restoreDataAfterFinish(startBeforeItemA, channelAParams);
+		//restoreDataAfterFinish(startBeforeItemA, channelAParams);
 		debouncedSendACmd2();
+		playClickSound();
 	};
 
 	// ============== B通道事件处理 ==============
@@ -263,15 +283,21 @@
 	};
 
 	const handleChannelBStart = () => {
+		const time = channelBParams.value[2];
+		if (time.value <= 0) return;
+		if (channelBIsRunning.value) return;
 		channelBIsRunning.value = true;
-		backupDataBeforeStart(startBeforeItemB, channelBParams, 'B');
+		//backupDataBeforeStart(startBeforeItemB, channelBParams, 'B');
 		debouncedSendBCmd2();
+		playClickSound();
 	};
 
 	const handleChannelBStop = () => {
+		if (!channelBIsRunning.value) return;
 		channelBIsRunning.value = false;
-		restoreDataAfterFinish(startBeforeItemB, channelBParams);
+		//restoreDataAfterFinish(startBeforeItemB, channelBParams);
 		debouncedSendBCmd2();
+		playClickSound();
 	};
 
 	const handleParamConfigClose = () => {
@@ -357,20 +383,38 @@
 		const frequency = itemS.value[1];
 		const time = itemS.value[2];
 		const channel = data.getNumber('channel', 0);
+		const timeMin = data.getNumber('timeMin', 0);
+		const timeSec = data.getNumber('timeSec', 0);
+		let nowStopA = false;
+		let nowStopB = false;
 		if (channel == 0) {
 			time.unit = channelAIsRunning.value ? 'Min1' : 'Min';
+			nowStopA = !channelAIsRunning.value && timeSec == 0 && timeMin == 0;
+			if (nowStopA && isStopNowA.value != nowStopA) {
+				infoMsgVisibleA.value = !isFirstStopNowA.value;
+			}
+			isStopNowA.value = nowStopA;
+			isFirstStopNowA.value = false;
 		}
 		if (channel == 1) {
 			time.unit = channelBIsRunning.value ? 'Min1' : 'Min';
+			nowStopB = !channelBIsRunning.value && timeSec == 0 && timeMin == 0;
+			if (nowStopB && isStopNowB.value != nowStopB) {
+				infoMsgVisibleB.value = !isFirstStopNowB.value;
+			}
+			isStopNowB.value = nowStopB;
+			isFirstStopNowB.value = false;
 		}
 		intensity.value = data.getNumber('power', 1);
 		frequency.value = data.getNumber('freq', 5) / 10;
 		if (time.unit == 'Min1') {
 			// 转换成秒数和
-			time.value = data.getNumber('timeMin', 0) * 60 + data.getNumber('timeSec', 0);
+			time.max = 3600;
+			time.value = timeMin * 60 + timeSec;
 		} else {
 			// 转换成带小数的分钟数
-			time.value = data.getNumber('timeMin', 60) + data.getNumber('timeSec', 0) / 60;
+			time.max = 60;
+			time.value = timeMin + timeSec / 60;
 		}
 	}
 	const fromCmd3Resp = (data : UTSJSONObject) => {

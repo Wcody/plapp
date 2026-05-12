@@ -74,7 +74,7 @@ export declare function setMtu(mtu : number) : void;
 /**
  * 写入字节数组数据
  */
-export declare function writeBytes(data : number[]) : void;
+export declare function writeBytes(data : number[] | Uint8Array) : void;
 /**
  * 写入字符串数据
  */

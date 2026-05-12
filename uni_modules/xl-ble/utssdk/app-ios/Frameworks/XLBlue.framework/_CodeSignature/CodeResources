@@ -10,11 +10,11 @@
 		</data>
 		<key>Headers/XLBlueTool.h</key>
 		<data>
-		Kd04jKYozSV43qTknk4iw4yvumY=
+		FzyGRNbENg2okrGa6CMO+M25w14=
 		</data>
 		<key>Info.plist</key>
 		<data>
-		ntZVTS/Q4mFjhkwmZuBE6u7/fNs=
+		z9ES9V4aLUMS41T9enYLGFj0fjw=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -25,10 +25,6 @@
 	<dict>
 		<key>Headers/XLBlue.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			p3Od6Ok2FfwTjMtiC2o/TyQd1aI=
-			</data>
 			<key>hash2</key>
 			<data>
 			wDG1hOiny6+bTTxJCjD1Z4uMRdO6PwjM0nm5ZSqPBVE=
@@ -36,21 +32,13 @@
 		</dict>
 		<key>Headers/XLBlueTool.h</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Kd04jKYozSV43qTknk4iw4yvumY=
-			</data>
 			<key>hash2</key>
 			<data>
-			Yn8//0Yo3QvTufHyGrC81bVgCXuI9QNXTIOkaVFp8HY=
+			Tv/vEeA7nEHOaXL19hQsNp41eOkPKvbRvvTjsD81cJ4=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
 		<dict>
-			<key>hash</key>
-			<data>
-			Z8TWd3FOuBzqFp+/pF8r/a0Akhk=
-			</data>
 			<key>hash2</key>
 			<data>
 			CSonHlyNy1O88rtC7vcNDNb0vz25TT1dWaEiBBU1mB0=

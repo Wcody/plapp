@@ -1,9 +1,9 @@
 {
-	"name": "PL-APP",
+	"name": "EQ FLUX",
 	"appid": "__UNI__361969B",
 	"description": "PL系列控制端",
-	"versionName": "1.0.8",
-	"versionCode": "108",
+	"versionName": "2.0.2",
+	"versionCode": "2002",
 	"uni-app-x": {},
 	/* 快应用特有相关 */
 	"quickapp": {},
@@ -47,13 +47,19 @@
 				"xl-ble": {}
 			},
 			"icons": {
-				"hdpi": "",
-				"xhdpi": "",
-				"xxhdpi": "",
-				"xxxhdpi": ""
+				"hdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/logo72.png",
+				"xhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/logo96.png",
+				"xxhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/logo144.png",
+				"xxxhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/logo192.png"
 			},
 			"splashScreens": {
-				"default": {}
+				"default": {
+					"xhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/720x1280.png",
+					"xxhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/1080x1920.png",
+					"xxxhdpi": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/2160x3840.png"
+				},
+				"background": "#000000",
+				"background@night": "#000000"
 			},
 			"abiFilters": [
 				"armeabi-v7a",
@@ -77,7 +83,9 @@
 				"uni-barcode-scanning": {},
 				"xl-ble": {}
 			},
-			"icons": {},
+			"icons": {
+				"appstore": "D:/Wcke/000SourceCode/HBuilderProjects/plapp/static/1024x1024.png"
+			},
 			"splashScreens": {},
 			"privacyDescription": {
 				"NSCameraUsageDescription": "Need access to your camera for QR code scanning, taking photos/videos for upload, and face recognition.",

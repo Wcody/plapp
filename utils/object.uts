@@ -2,14 +2,18 @@ import { reactive } from 'vue';
 
 // 🔥 关键：UTS 响应式全局变量必须用 type 定义，不能用 interface！
 export type GlobalData = {
-  deviceId: string
-  clinic: number
-  playSound: boolean // 必须加上这个字段
+	deviceId : string
+	m1DefaultDeviceId : string // M1默认设备ID
+	duoDefaultDeviceId : string // Duo默认设备ID
+	clinic : number
+	playSound : boolean // 必须加上这个字段
 }
 
 // ✅ 100% 正确：不泛型、不强转、不崩溃
 export const globalData = reactive<GlobalData>({
-  deviceId: '',
-  clinic: 0,
-  playSound: true // 默认值
+	deviceId: '',
+	m1DefaultDeviceId: 'B4:C2:E0:F3:DB:94',
+	duoDefaultDeviceId: 'B4:C2:E0:E7:C4:34',
+	clinic: 0,
+	playSound: true // 默认值
 })

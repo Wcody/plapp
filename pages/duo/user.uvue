@@ -16,7 +16,7 @@
 		},
 		clinic: {
 			type: Number,
-			default: globalData.clinic,
+			default: Math.min(globalData.clinic, 0),
 		},
 	})
 	

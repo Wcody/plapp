@@ -1,14 +1,14 @@
 {
 	"id": "xl-ble",
 	"displayName": "BLE低功耗蓝牙 UTS 插件 支持 安卓、iOS、鸿蒙NEXT、微信小程序",
-	"version": "1.5.2",
+	"version": "1.5.3",
 	"description": "BLE 蓝牙 UTS 原生插件，支持发送字符串和字节码，蓝牙扫描、连接、发送数据，蓝牙状态监听、连接状态、数据回传、数据写入是否完成监听，支持GBK编码",
 	"keywords": [
-        "蓝牙",
+        "BLE",
+        "ble蓝牙",
         "低功耗蓝牙",
         "bluetooth",
-        "ble蓝牙",
-        "BLE蓝牙"
+        "蓝牙"
     ],
 	"repository": "",
 	"engines": {
@@ -20,7 +20,7 @@
 		"type": "uts",
 		"sale": {
 			"regular": {
-				"price": "26.00"
+				"price": "30.00"
 			},
 			"sourcecode": {
 				"price": "666.00"
@@ -65,8 +65,7 @@
 						  "extVersion": "",
 						  "minVersion": "21"
 						},
-                        "ios": {
-                        },
+                        "ios": "√",
 						"harmony": {
                             "extVersion": "",
                             "minVersion": "10"
@@ -81,7 +80,8 @@
 						"jd": "-",
 						"harmony": "-",
 						"qq": "-",
-						"lark": "-"
+                        "lark": "-",
+                        "xhs": "-"
 					},
 					"quickapp": {
 						"huawei": "-",

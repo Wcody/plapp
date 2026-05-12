@@ -22,13 +22,10 @@
 
 	const handleClick = () => {
 		if (props.param.title == 'Energy') return;
-		if (props.param.isActive) {
-			// 点击进入配置
-			emit('click', props.param)
-		} else {
-			// 仅仅高亮选中
-			emit('select', props.param);
-		}
+		// 单机就进入配置
+		emit('select', props.param);
+		// 点击进入配置
+		emit('click', props.param)
 	}
 	
 	const value = computed(() => {
@@ -99,7 +96,7 @@
 		font-size: 48rpx;
 		font-weight: bold;
 		color: #fff;
-		line-height: 1;
+		line-height: 2;
 		margin-right: 8rpx;
 		margin-top: 5rpx;
 	}
@@ -107,8 +104,8 @@
 	.param-unit {
 		font-size: 32rpx;
 		color: #fff;
-		line-height: 1;
-		opacity: 0.9;
+		line-height: 2;
+		opacity: 0.8;
 		margin-top: 20rpx;
 	}
 </style>
