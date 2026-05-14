@@ -37,7 +37,7 @@ export class BluetoothSession {
 	// ======================
 	private pollTimer = ref(0);    // 轮询定时器
 
-	bleEnabled = ref(false);
+	bleEnabled = ref(true);
 	scanning = ref(false);
 	deviceId = ref("");
 	isConnected = ref(false);
@@ -94,6 +94,23 @@ export class BluetoothSession {
 		ble.writeBytes(cmd);
 		this.addLog(`轮询查询通道${channel}`);
 	}
+	
+	/**
+	 * 比较蓝牙名称和蓝牙地址是否匹配
+	 * @param {string} name - 蓝牙广播名称，如 "KF:b4c2e0f3db94"
+	 * @param {string} mac - 蓝牙地址，如 "B4:C2:E0:F3:DB:94"
+	 * @returns {boolean} 匹配返回 true，不匹配返回 false
+	 */
+	isBluetoothNameMatchMac(name: string, mac: string): boolean {
+	  // 1. 去掉名称里的 KF: 前缀
+	  const nameMac = name.replace('KF:', '');
+	
+	  // 2. 处理地址：去掉冒号 + 转小写
+	  const realMac = mac.replace(/:/g, '').toLowerCase();
+	
+	  // 3. 比较是否一致
+	  return nameMac == realMac;
+	}
 
 	startScan() : void {
 		if (!this.bleEnabled.value) {
@@ -104,10 +121,10 @@ export class BluetoothSession {
 		this.scanning.value = true;
 		this.deviceId.value = "";
 		this.addLog("开始扫描M1设备...");
-		this.addLog("Start scanning for device...");
+		uni.showLoading({ title: "Start scanning for device..." });
 
 		ble.startScan((device) => {
-			if (device.deviceId == this.targetDeviceId) {
+			if (this.isBluetoothNameMatchMac(device.name, this.targetDeviceId)) {
 				this.deviceId.value = device.deviceId;
 				ble.stopScan();
 				this.scanning.value = false;
@@ -148,6 +165,7 @@ export class BluetoothSession {
 
 		this.isAutoConnecting.value = true;
 		this.addLog("正在连接设备...");
+		uni.hideLoading();
 		uni.showToast({ title: "Connecting via Bluetooth", icon: "none" });
 
 		ble.connect(this.deviceId.value, {
@@ -259,7 +277,9 @@ export class BluetoothSession {
 				if (cmd2IsProcessing) return;
 				const info = BleProtocol.cmd1_parseDeviceInfo(data);
 				uni.$emit(RECV_CMD1, info?.toJSON());
-				//this.addLog(`设备信息：${JSON.stringify(info?.toJSON())}`);
+				uni.showToast({ title: `Connected to device(${info?.versionA})`, icon: "success" });
+				this.startPolling();
+				this.addLog(`设备信息========================：${JSON.stringify(info?.toJSON())}`);
 			} else if (cmd == BleCmd.CMD2_SET_PARAMS) {
 				try {
 					const ack = BleProtocol.cmd2_parseSetAck(data);
@@ -300,10 +320,10 @@ export class BluetoothSession {
 				this.isConnected.value = true;
 				this.isAutoConnecting.value = false;
 				this.addLog("✅ 设备连接成功");
-				uni.showToast({ title: "Connected to device", icon: "success" });
 				uni.hideLoading();
 				// 连接成功自动启动500ms轮询
-				this.startPolling();
+				//this.startPolling();
+				this.readDeviceInfo();
 			} else {
 				uni.$emit(BLE_CONNECTED, false);
 				this.clearConnectTimeout();

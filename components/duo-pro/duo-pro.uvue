@@ -35,8 +35,8 @@
 	})
 
 	// 初始化蓝牙
-	//const bluetooth = useBluetooth(props.deviceId == '' ? "B4:C2:E0:E7:C4:34" : props.deviceId);
-	const bluetooth = useBluetooth(props.deviceId);
+	const bluetooth = useBluetooth(props.deviceId == '' ? "B4:C2:E0:E7:C4:34" : props.deviceId);
+	//const bluetooth = useBluetooth(props.deviceId);
 	// 要么读，要么写，不能同时进行，否则会有冲突
 	const isWorking = ref(false);
 	// 发送消息后，等待一段时间才能同步从机数据
@@ -436,11 +436,7 @@
 
 	// 连接成功后，如果已经启动，则定时收信息，否则定时发送信息
 	const intervalHandle = ref<number>(0);
-
-	// 最后启动蓝牙自动连接
-	bluetooth.initBluetoothListener();
-	bluetooth.initAutoFlow();
-
+	
 	onMounted(() => {
 		// 监听接受到的数据信息
 		uni.$on(RECV_CMD2, (data : boolean) => {
@@ -468,6 +464,10 @@
 				intervalHandle.value = 0;
 			}
 		});
+		
+		// 最后启动蓝牙自动连接
+		bluetooth.initBluetoothListener();
+		bluetooth.initAutoFlow();
 	});
 
 	onUnmounted(() => {

@@ -128,6 +128,23 @@ export class M1BluetoothSession {
 		ble.writeBytes(cmd);
 		this.addLog(`轮询查询M1通道${channel}`);
 	}
+	
+	/**
+	 * 比较蓝牙名称和蓝牙地址是否匹配
+	 * @param {string} name - 蓝牙广播名称，如 "KF:b4c2e0f3db94"
+	 * @param {string} mac - 蓝牙地址，如 "B4:C2:E0:F3:DB:94"
+	 * @returns {boolean} 匹配返回 true，不匹配返回 false
+	 */
+	isBluetoothNameMatchMac(name: string, mac: string): boolean {
+	  // 1. 去掉名称里的 KF: 前缀
+	  const nameMac = name.replace('KF:', '');
+	
+	  // 2. 处理地址：去掉冒号 + 转小写
+	  const realMac = mac.replace(/:/g, '').toLowerCase();
+	
+	  // 3. 比较是否一致
+	  return nameMac == realMac;
+	}
 
 	/**
 	 * 开始扫描M1目标蓝牙设备
@@ -146,20 +163,20 @@ export class M1BluetoothSession {
 		// 启动蓝牙扫描
 		ble.startScan((device) => {
 			// 匹配目标设备ID
-			this.addLog(`扫描到设备：${JSON.stringify(device)}`);
-			// if (device.deviceId == this.targetDeviceId) {
-			// 	this.deviceId.value = device.deviceId;
-			// 	ble.stopScan();
-			// 	this.scanning.value = false;
-			// 	this.addLog(`✅ 找到目标M1设备：${device.name}`);
+			//this.addLog(`扫描到设备：${JSON.stringify(device)}`);
+			if (this.isBluetoothNameMatchMac(device.name, this.targetDeviceId)) {
+				this.deviceId.value = device.deviceId;
+				ble.stopScan();
+				this.scanning.value = false;
+				this.addLog(`✅ 找到目标M1设备：${device.name}`);
 
-			// 	// 自动发起连接
-			// 	if (!this.isConnected.value && !this.isAutoConnecting.value) {
-			// 		setTimeout(() => {
-			// 			this.connectDevice();
-			// 		}, 200);
-			// 	}
-			// }
+				// 自动发起连接
+				if (!this.isConnected.value && !this.isAutoConnecting.value) {
+					setTimeout(() => {
+						this.connectDevice();
+					}, 200);
+				}
+			}
 		}, null);
 
 		// 10秒扫描超时自动停止
@@ -193,6 +210,7 @@ export class M1BluetoothSession {
 
 		this.isAutoConnecting.value = true;
 		this.addLog("正在连接M1设备...");
+		uni.hideLoading();
 		uni.showToast({ title: "Connecting via Bluetooth", icon: "none" });
 
 		// 发起BLE连接
@@ -315,8 +333,10 @@ export class M1BluetoothSession {
 			if (cmd == M1BleCmd.M1_CMD1_QUERY_DEVICE_INFO) {
 				if (cmd2IsProcessing) return;
 				const info = M1BleProtocol.m1Cmd1ParseDeviceInfo(data);
+				uni.showToast({ title: `Connected to device(${info?.versionA})`, icon: "success" });
+				this.startPolling();
 				uni.$emit(M1_RECV_CMD1, info?.toJSON());
-				//this.addLog(`M1设备信息：${JSON.stringify(info?.toJSON())}`);
+				this.addLog(`M1设备信息：${JSON.stringify(info?.toJSON())}`);
 			}
 			// 指令2：参数下发应答
 			else if (cmd == M1BleCmd.M1_CMD2_SET_PARAMS) {
@@ -335,7 +355,7 @@ export class M1BluetoothSession {
 				if (cmd2IsProcessing) return;
 				const params = M1BleProtocol.m1Cmd3ParseParams(data);
 				uni.$emit(M1_RECV_CMD3, params?.toJSON());
-				this.addLog(`M1运行参数：${JSON.stringify(params?.toJSON())}`);
+				//this.addLog(`M1运行参数：${JSON.stringify(params?.toJSON())}`);
 			}
 			// 未知指令
 			else {
@@ -365,10 +385,11 @@ export class M1BluetoothSession {
 				this.isConnected.value = true;
 				this.isAutoConnecting.value = false;
 				this.addLog("✅ M1设备连接成功");
-				uni.showToast({ title: "Connected to device", icon: "success" });
 				uni.hideLoading();
 				// 连接成功自动启动500ms轮询
-				this.startPolling();
+				// this.startPolling();
+				// 先发送查询指令获取设备信息
+				this.readDeviceInfo();
 			} else {
 				uni.$emit(M1_BLE_CONNECTED, false);
 				this.clearConnectTimeout();
