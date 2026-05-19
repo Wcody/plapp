@@ -250,7 +250,7 @@ export class BluetoothSession {
 				}
 				setTimeout(() => {
 					if (!this.scanning.value && this.deviceId.value.length == 0) {
-						//this.startScan();
+						this.startScan();
 					}
 				}, 80);
 			}
@@ -390,7 +390,7 @@ export class BluetoothSession {
 		}
 		// 🔥 清理轮询
 		this.stopPolling();
-		//ble.stopScan();
+		ble.stopScan();
 		ble.disconnect();
 		this.isAutoConnecting.value = false;
 		uni.$off(SEND_CMD1);

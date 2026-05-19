@@ -10,7 +10,7 @@
 		<text class="title">{{ title }}</text>
 		<text class="version">{{ version }}</text>
 
-		<view v-show="true" class="custom-box">
+		<view v-show="false" class="custom-box">
 			<button class="custom-btn" @click="customSelect(1)">PL-M1</button>
 			<button class="custom-btn" @click="customSelect(2)">PL-DUO-USER</button>
 			<button class="custom-btn" @click="customSelect(3)">PL-DUO-PRO</button>
@@ -29,7 +29,7 @@
 	import { globalData } from '@/utils/object.uts';
 
 	const title = ref('Welcome to EQ FLUX!')
-	const version = ref('v2.0.2')
+	const version = ref('v2.0.5')
 
 	// 声音开关切换
 	const toggleSound = () => {
@@ -159,7 +159,6 @@
 		box-sizing: border-box;
 		background-color: #000;
 		position: relative;
-		min-height: 100vh; /* 保证占满屏幕高度 */
 	}
 	
 	/* 右上角声音开关 */

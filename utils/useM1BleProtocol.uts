@@ -300,7 +300,7 @@ export class M1BluetoothSession {
 				}
 				setTimeout(() => {
 					if (!this.scanning.value && this.deviceId.value.length == 0) {
-						//this.startScan();
+						this.startScan();
 					}
 				}, 80);
 			}

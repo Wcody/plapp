@@ -5,8 +5,6 @@
 </template>
 
 <script setup lang="uts">
-	import { ref, onMounted, onUnmounted } from 'vue'
-	import { playClickSound } from '@/utils/common.uts';
 	import { globalData } from '@/utils/object.uts';
 	
 	const props = defineProps({
