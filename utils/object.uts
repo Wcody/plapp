@@ -17,3 +17,40 @@ export const globalData = reactive<GlobalData>({
 	clinic: 0,
 	playSound: true // 默认值
 })
+
+const CURRENT_DEVICE_ID_KEY = 'current_device_id'
+const CURRENT_CLINIC_KEY = 'current_clinic'
+
+export function setCurrentDeviceId(deviceId: string): void {
+	globalData.deviceId = deviceId
+	uni.setStorageSync(CURRENT_DEVICE_ID_KEY, deviceId)
+}
+
+export function setCurrentClinic(clinic: number): void {
+	globalData.clinic = clinic
+	uni.setStorageSync(CURRENT_CLINIC_KEY, clinic)
+}
+
+export function getCurrentDeviceId(defaultDeviceId: string): string {
+	if (globalData.deviceId.length > 0) {
+		return globalData.deviceId
+	}
+
+	const value = uni.getStorageSync(CURRENT_DEVICE_ID_KEY)
+	if (typeof value == 'string' && value.length > 0) {
+		globalData.deviceId = value
+		return value
+	}
+
+	return defaultDeviceId
+}
+
+export function getCurrentClinic(defaultClinic: number): number {
+	const value = uni.getStorageSync(CURRENT_CLINIC_KEY)
+	if (typeof value == 'number') {
+		globalData.clinic = value
+		return value
+	}
+
+	return defaultClinic
+}

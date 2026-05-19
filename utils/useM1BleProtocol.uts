@@ -194,7 +194,7 @@ export class M1BluetoothSession {
 				});
 				this.addLog(title);
 				// 关闭当前页面，返回上一级
-				//uni.navigateBack();
+				uni.navigateBack();
 			}
 		}, 10000);
 	}

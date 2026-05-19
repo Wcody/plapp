@@ -76,22 +76,18 @@
 	// ====================== M1 蓝牙库（你指定的文件）======================
 	import { useM1Bluetooth, M1_SEND_CMD2, M1_SEND_CMD3, M1_RECV_CMD3, M1_BLE_CONNECTED } from '@/utils/useM1BleProtocol.uts';
 	import { M1Cmd2SetParamsReq } from '@/utils/m1BleProtocol.uts';
-	import { globalData } from '@/utils/object.uts';
+	import { globalData, getCurrentDeviceId } from '@/utils/object.uts';
 
 	// ==================== 属性 ====================
 	const props = defineProps({
 		deviceId: {
 			type: String,
-			default: globalData.deviceId,
-		},
-		clinic: {
-			type: Number,
-			default: globalData.clinic,
+			default: "",
 		},
 	})
-	console.log('props.deviceId: ', props.deviceId);
 	// ==================== 蓝牙实例 ====================
-	const bluetooth = useM1Bluetooth(props.deviceId == "" ? "B4:C2:E0:F3:DB:94" : props.deviceId);
+	const targetDeviceId = getCurrentDeviceId(globalData.m1DefaultDeviceId);
+	const bluetooth = useM1Bluetooth(targetDeviceId);
 	//const bluetooth = useM1Bluetooth(props.deviceId);
 
 	// ==================== 状态数据 ====================

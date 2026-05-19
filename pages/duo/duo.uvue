@@ -5,22 +5,10 @@
 </template>
 
 <script setup lang="uts">
-	import { ref, onMounted, onUnmounted } from 'vue'
-	import { playClickSound } from '@/utils/common.uts';
-	import { globalData } from '@/utils/object.uts';
+	import { globalData, getCurrentClinic, getCurrentDeviceId } from '@/utils/object.uts';
 	
-	const app = getApp();
-	
-	const props = defineProps({
-		deviceId: {
-			type: String,
-			default: globalData.deviceId,
-		},
-		clinic: {
-			type: Number,
-			default: Math.max(globalData.clinic, 1),
-		},
-	})
+	const deviceId = getCurrentDeviceId(globalData.duoDefaultDeviceId)
+	const clinic = Math.max(getCurrentClinic(1), 1)
 </script>
 
 <style scoped>

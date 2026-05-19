@@ -5,18 +5,10 @@
 </template>
 
 <script setup lang="uts">
-	import { globalData } from '@/utils/object.uts';
+	import { globalData, getCurrentClinic, getCurrentDeviceId } from '@/utils/object.uts';
 	
-	const props = defineProps({
-		deviceId: {
-			type: String,
-			default: globalData.deviceId,
-		},
-		clinic: {
-			type: Number,
-			default: Math.min(globalData.clinic, 0),
-		},
-	})
+	const deviceId = getCurrentDeviceId(globalData.duoDefaultDeviceId)
+	const clinic = Math.min(getCurrentClinic(0), 0)
 	
 	onReady(() => {
 		// 全局广播事件，让子组件的画布可以正常工作

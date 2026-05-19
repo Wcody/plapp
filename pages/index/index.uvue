@@ -26,7 +26,7 @@
 <script setup lang="uts">
 	import { ref } from 'vue';
 	import { formatUpperMac } from '@/utils/common.uts';
-	import { globalData } from '@/utils/object.uts';
+	import { globalData, setCurrentClinic, setCurrentDeviceId } from '@/utils/object.uts';
 
 	const title = ref('Welcome to EQ FLUX!')
 	const version = ref('v2.0.5')
@@ -91,7 +91,7 @@
 					console.log('macs:', macs);
 
 					if (macs.length == 2) {
-						globalData.deviceId = formatUpperMac(macs[1]);
+						setCurrentDeviceId(formatUpperMac(macs[1]));
 						console.log('formatted deviceId:', globalData.deviceId);
 					} else {
 						uni.showToast({ title: 'Invalid MAC format', icon: 'error' });
@@ -105,15 +105,14 @@
 					}
 
 					// ✅ 6. 设备类型判断
-					if (emp.includes('NULL')) {
-						globalData.clinic = 0;
+					if (ui.includes('M1')) {
+						openWinByOperId(1)
+					} else if (emp.includes('NULL')) {
+						setCurrentClinic(0);
 						openWinByOperId(2)
 					} else if (emp.includes('CLINIC')) {
-						globalData.clinic = 1;
+						setCurrentClinic(1);
 						openWinByOperId(3)
-					} else if (ui.includes('M1')) {
-						globalData.clinic = 0;
-						openWinByOperId(1)
 					} else {
 						uni.showToast({ title: 'Unknown device type', icon: 'error' })
 					}
