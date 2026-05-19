@@ -45,7 +45,7 @@
 		let url : string = '/pages/index/index'
 		// UTS 推荐使用 === 严格相等，避免类型装箱警告
 		if (operId == 1) {
-			url = '/pages/m1/m1'
+			url = '/pages/m1/m1';
 		} else if (operId == 2) {
 			url = '/pages/duo/user'
 		} else if (operId == 3) {
