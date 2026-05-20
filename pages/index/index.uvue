@@ -18,7 +18,9 @@
 		</view>
 		<!-- 底部居中扫一扫按钮 -->
 		<view class="scan-box">
-			<button class="scan-btn" @click="scanCode">Scan QR Code</button>
+			<view class="scan-btn" @click="scanCode">
+				<text class="scan-btn-text">Scan QR Code</text>
+			</view>
 		</view>
 	</view>
 </template>
@@ -197,18 +199,29 @@
 		margin-top: auto;
 		margin-bottom: 70px;
 		width: 100%; /* 占满宽度，让按钮居中 */
+		box-sizing: border-box;
 		display: flex;
+		flex-direction: row;
+		align-items: center;
 		justify-content: center;
 	}
 	
 	.scan-btn {
 		background: linear-gradient(to right, #2a78b5, #64d2cb);
-		color: #FFFFFF;
+		background-color: #2a78b5;
+		width: 260px;
+		height: 64px;
 		border-radius: 10px;
-		padding: 14px 36px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	.scan-btn-text {
+		color: #FFFFFF;
 		font-size: 18px;
 		font-weight: 600;
-		border: none;
 	}
 	
 	.custom-box {

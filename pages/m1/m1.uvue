@@ -41,7 +41,7 @@
 			<!-- 3. Time（时间）控制模块 -->
 			<m1-slider-control title="Time" :model-value="timeMinutes"
 				@update:model-value="timeMinutes = $event as number; debouncedSendCmd2()" :low="timeMin" :high="timeMax"
-				:step-val="timeStep" :disabled="isP" :unit-str="timeUnit" />
+				:step-val="timeStep" :disabled="isP || isRunning" :unit-str="timeUnit" />
 		</scroll-view>
 		<!-- 底部水印+返回按钮 -->
 		<view class="footer-wrapper">
@@ -480,7 +480,7 @@
 
 	/* 纯class选择器，修复UVue限制 */
 	.mode-text {
-		color: #666;
+		color: #999;
 		font-size: 56rpx;
 		font-weight: bold;
 	}

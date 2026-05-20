@@ -14,7 +14,7 @@
 			<!-- 固定高度内容框 -->
 			<view class="modal-body">
 				<m1-slider-control :title="param.title" :model-value="param.value"
-				@update:model-value="valueChange" :low="param.min" :high="param.max" :step-val="param.step" :unit-str="param.unit"></m1-slider-control>>
+				@update:model-value="valueChange" :low="param.min" :high="param.max" :step-val="param.step" :unit-str="param.unit"></m1-slider-control>
 			</view>
 		</view>
 	</view>

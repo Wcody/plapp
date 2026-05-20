@@ -73,7 +73,7 @@ export const formatKGS = (value: number): string => {
  * @param macStr 原始串: b4c2e0f3db94
  * @returns 格式化大写MAC
  */
-export const = formatUpperMac = (macStr: string): string => {
+export const formatUpperMac = (macStr: string): string => {
   // 过滤非法字符、转大写
   const clean = macStr.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
   
