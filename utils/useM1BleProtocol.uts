@@ -45,6 +45,7 @@ export class M1BluetoothSession {
 
 	// 连接超时定时器
 	private connectTimeoutId : number | null = null;
+	private readDeviceInfoTimerId : number | null = null;
 	// 自动流程轮询定时器
 	private autoFlowIntervalId : number | null = null;
 
@@ -92,6 +93,25 @@ export class M1BluetoothSession {
 			clearTimeout(timeoutId);
 			this.connectTimeoutId = null;
 		}
+	}
+
+	clearReadDeviceInfoTimer() : void {
+		const timerId = this.readDeviceInfoTimerId;
+		if (timerId != null) {
+			clearTimeout(timerId);
+			this.readDeviceInfoTimerId = null;
+		}
+	}
+
+	scheduleReadDeviceInfo() : void {
+		this.clearReadDeviceInfoTimer();
+		this.readDeviceInfoTimerId = setTimeout(() => {
+			if (this.isConnected.value) {
+				this.addLog("连接稳定后查询M1设备信息");
+				this.readDeviceInfo();
+			}
+			this.readDeviceInfoTimerId = null;
+		}, 500);
 	}
 
 	/**
@@ -365,7 +385,7 @@ export class M1BluetoothSession {
 
 		// 监听蓝牙写入完成回调
 		ble.onWriteComplete((ok : boolean) => {
-			//this.addLog(`M1数据发送：${ok ? "成功" : "失败"}`);
+			this.addLog(`M1数据发送：${ok ? "成功" : "失败"}`);
 		});
 
 		// 监听系统蓝牙开关状态
@@ -389,10 +409,11 @@ export class M1BluetoothSession {
 				// 连接成功自动启动500ms轮询
 				// this.startPolling();
 				// 先发送查询指令获取设备信息
-				this.readDeviceInfo();
+				this.scheduleReadDeviceInfo();
 			} else {
 				uni.$emit(M1_BLE_CONNECTED, false);
 				this.clearConnectTimeout();
+				this.clearReadDeviceInfoTimer();
 				this.isConnected.value = false;
 				this.isAutoConnecting.value = false;
 				this.addLog("❌ Device disconnected / Connection failed");
@@ -456,6 +477,7 @@ export class M1BluetoothSession {
 	destroyBluetooth() : void {
 		// 清除定时器
 		this.clearConnectTimeout();
+		this.clearReadDeviceInfoTimer();
 		const intervalId = this.autoFlowIntervalId;
 		if (intervalId != null) {
 			clearInterval(intervalId);

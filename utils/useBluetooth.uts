@@ -27,9 +27,10 @@ let cmd2IsProcessing = false;
 export class BluetoothSession {
 	private targetDeviceId : string;
 	private readonly serviceUuid : string = "0000ff00-0000-1000-8000-00805f9b34fb";
-	private readonly writeUuid : string = "0000ff00-0000-1000-8000-00805f9b34fb";
-	private readonly notifyUuid : string = "0000ff00-0000-1000-8000-00805f9b34fb";
+	private readonly writeUuid : string = "0000ff02-0000-1000-8000-00805f9b34fb";
+	private readonly notifyUuid : string = "0000ff01-0000-1000-8000-00805f9b34fb";
 	private connectTimeoutId : number | null = null;
+	private readDeviceInfoTimerId : number | null = null;
 	private autoFlowIntervalId : number | null = null;
 
 	// ======================
@@ -61,6 +62,25 @@ export class BluetoothSession {
 			clearTimeout(timeoutId);
 			this.connectTimeoutId = null;
 		}
+	}
+
+	clearReadDeviceInfoTimer() : void {
+		const timerId = this.readDeviceInfoTimerId;
+		if (timerId != null) {
+			clearTimeout(timerId);
+			this.readDeviceInfoTimerId = null;
+		}
+	}
+
+	scheduleReadDeviceInfo() : void {
+		this.clearReadDeviceInfoTimer();
+		this.readDeviceInfoTimerId = setTimeout(() => {
+			if (this.isConnected.value) {
+				this.addLog("连接稳定后查询设备信息");
+				this.readDeviceInfo();
+			}
+			this.readDeviceInfoTimerId = null;
+		}, 500);
 	}
 
 	// ======================
@@ -323,10 +343,11 @@ export class BluetoothSession {
 				uni.hideLoading();
 				// 连接成功自动启动500ms轮询
 				//this.startPolling();
-				this.readDeviceInfo();
+				this.scheduleReadDeviceInfo();
 			} else {
 				uni.$emit(BLE_CONNECTED, false);
 				this.clearConnectTimeout();
+				this.clearReadDeviceInfoTimer();
 				this.isConnected.value = false;
 				this.isAutoConnecting.value = false;
 				this.addLog("❌ Device disconnected / Connection failed");
@@ -383,6 +404,7 @@ export class BluetoothSession {
 
 	destroyBluetooth() : void {
 		this.clearConnectTimeout();
+		this.clearReadDeviceInfoTimer();
 		const intervalId = this.autoFlowIntervalId;
 		if (intervalId != null) {
 			clearInterval(intervalId);

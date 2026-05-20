@@ -118,7 +118,7 @@
 	const selectedTitle = ref('DEEP RECOVERY');
 
 	const canntUpdateNow = ref(false);
-	const canntUpdateNowTimeout = 500;
+	const canntUpdateNowTimeout = 1000;
 	const canntUpdateNowTimer = ref(0);
 
 	// ==================== 计算属性 ====================

@@ -41,7 +41,7 @@
 	const isWorking = ref(false);
 	// 发送消息后，等待一段时间才能同步从机数据
 	const canntUpdateNow = ref(false);
-	const canntUpdateNowTimeout = 100;
+	const canntUpdateNowTimeout = 1000;
 	const canntUpdateNowTimer = ref(0);
 	
 	// 是否计时停止，普通停止不算，用于判断是否显示完成框
